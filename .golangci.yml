@@ -10,8 +10,6 @@ linters:
   enable:
     - deadcode
     - errcheck
-    - gocritic
-    - govet
     - ineffassign
     - interfacer
     - nakedret

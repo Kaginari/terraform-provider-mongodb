@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
-	"strconv"
-	"strings"
 )
 
 type DbUser struct {
@@ -92,12 +90,4 @@ func createRole(client *mongo.Client, role string, roles []Role, privilege []Pri
 		return result.Err()
 	}
 	return nil
-}
-func hex2int(hexStr string) uint64 {
-	// remove 0x suffix if found in the input string
-	cleaned := strings.Replace(hexStr, "0x", "", -1)
-
-	// base 16 for hexadecimal
-	result, _ := strconv.ParseUint(cleaned, 16, 64)
-	return uint64(result)
 }
