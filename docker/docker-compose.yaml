@@ -3,39 +3,45 @@ version: '3.1'
 networks:
   network:
     driver: bridge
-
+    ipam:
+      config:
+        - subnet: 172.30.0.0/24
+          gateway: 172.30.0.1
 services:
   mongo:
     container_name: mongo
-    image: mongo:3.6
+    image: mongo-local
     restart: always
-    environment:
-      - MONGODB_USER:admin
-      - MONGODB_PASS:all0.1EN2.3ce
-      - MONGODB_DATABASE=admin
     volumes:
       - mongo_data:/data/db
+      - config_db:/data/configdb
     ports:
       - 27017:27017
     networks:
-      - network
+       network:
+         ipv4_address: 172.30.0.2
   mongo-express:
     image: mongo-express
     container_name: mongo-express
+    restart: always
     ports:
       - 8081:8081
     environment:
       ME_CONFIG_BASICAUTH_USERNAME: admin
-      ME_CONFIG_BASICAUTH_PASSWORD: all0.1EN2.3ce
-      ME_CONFIG_MONGODB_SERVER: mongo
+      ME_CONFIG_BASICAUTH_PASSWORD: admin
+      ME_CONFIG_MONGODB_SERVER: kaginari.herokuapp.com
       ME_CONFIG_MONGODB_PORT: 27017
-      ME_CONFIG_MONGODB_ADMINUSERNAME: admin
-      ME_CONFIG_MONGODB_ADMINPASSWORD: all0.1EN2.3ce
-    links:
-      - mongo:mongo
-    networks:
-      - network
+      ME_CONFIG_MONGODB_ADMINUSERNAME: root
+      ME_CONFIG_MONGODB_ADMINPASSWORD: root
+    network_mode: host
+    volumes:
+    - "./conf/config.js:/node_modules/mongo-express/config.js:ro"
     depends_on:
       - mongo
 volumes:
   mongo_data: {}
+  config_db: {}
+
+
+
+#docker run --name mongo -v /mnt/c/Users/monta/go/src/github.com/Kaginari/terraform-provider-mongodb/docker/conf/mongod.conf:/etc/mongo/mongod.conf -v /mnt/c/Users/monta/go/src/github.com/Kaginari/terraform-provider-mongodb/docker/certifs:/data/mongo -p 27017:27017 --network docker_network --env MONGODB_USER=admin --env MONGODB_PASS:all0.1EN2.3ce --env MONGODB_DATABASE=admin  -d mongo --config /etc/mongo/mongod.conf

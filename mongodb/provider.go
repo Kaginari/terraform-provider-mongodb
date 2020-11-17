@@ -42,6 +42,12 @@ func Provider() *schema.Provider {
 				Default:     "admin",
 				Description: "The mongodb auth database",
 			},
+			"ssl": {
+				Type:        schema.TypeBool,
+				Optional:    true,
+				Default:     false,
+				Description: "ssl activation",
+			},
 		},
 		ResourcesMap: map[string]*schema.Resource{
 			"mongodb_db_user": resourceDatabaseUser(),
@@ -63,8 +69,13 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 	var user = d.Get("username").(string)
 	var pwd = d.Get("password").(string)
 	var database = d.Get("auth_database").(string)
+	var ssl = d.Get("ssl").(bool)
+	var arguments = ""
+	if ssl {
+		arguments = "/?ssl=true"
+	}
+	var uri = "mongodb://" + host + ":" + port + arguments
 
-	var uri = "mongodb://" + host + ":" + port
 
 
 	client, err := mongo.NewClient(options.Client().ApplyURI(uri).SetAuth(options.Credential{
@@ -86,3 +97,4 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 	}
 	return client,diags
 }
+

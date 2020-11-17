@@ -13,6 +13,7 @@ NAME=mongodb
 VERSION=0.0.1
 ## on linux base os
 TERRAFORM_PLUGINS_DIRECTORY=~/.terraform.d/plugins/${HOSTNAME}/${NAMESPACE}/${NAME}/${VERSION}/${OS_ARCH}
+#TERRAFORM_PLUGINS_DIRECTORY=/mnt/c/Users/monta/.terraform.d/plugins/${HOSTNAME}/${NAMESPACE}/${NAME}/${VERSION}/${OS_ARCH}
 
 
 install:

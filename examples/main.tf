@@ -9,10 +9,11 @@ terraform {
 }
 
 provider "mongodb" {
-  host = "127.0.0.1"
+  host = "kaginari.herokuapp.com"
   port = "27017"
   username = "root"
   password = "root"
+  ssl = true
   auth_database = "admin"
 }
 
