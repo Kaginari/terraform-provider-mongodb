@@ -9,11 +9,11 @@ terraform {
 }
 
 provider "mongodb" {
-  host = "kaginari.herokuapp.com"
+  host = "127.0.0.1"
   port = "27017"
   username = "root"
   password = "root"
-  ssl = true
+  ssl = false
   auth_database = "admin"
 }
 
@@ -69,5 +69,14 @@ resource "mongodb_db_user" "user" {
     role = "readAnyDatabase"
     db =   "admin"
   }
+  role {
+    role = "readWrite"
+    db =   "local"
+  }
+  role {
+    role = "readWrite"
+    db =   "monta"
+  }
+
 
 }

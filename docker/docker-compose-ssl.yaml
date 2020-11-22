@@ -41,7 +41,3 @@ services:
 volumes:
   mongo_data: {}
   config_db: {}
-
-
-
-#docker run --name mongo -v /mnt/c/Users/monta/go/src/github.com/Kaginari/terraform-provider-mongodb/docker/conf/mongod.conf:/etc/mongo/mongod.conf -v /mnt/c/Users/monta/go/src/github.com/Kaginari/terraform-provider-mongodb/docker/certifs:/data/mongo -p 27017:27017 --network docker_network --env MONGODB_USER=admin --env MONGODB_PASS:all0.1EN2.3ce --env MONGODB_DATABASE=admin  -d mongo --config /etc/mongo/mongod.conf

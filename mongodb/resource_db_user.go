@@ -37,7 +37,7 @@ func resourceDatabaseUser() *schema.Resource {
 			"role": {
 				Type:     schema.TypeSet,
 				Optional: true,
-				MaxItems: 2,
+				MaxItems: 10,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"db": {
