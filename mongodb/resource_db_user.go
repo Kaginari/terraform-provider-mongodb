@@ -77,20 +77,21 @@ func resourceDatabaseUserUpdate(ctx context.Context, data *schema.ResourceData, 
 	var client = i.(*mongo.Client)
 
 	var stateId = data.State().ID
-	id, errEncoding := hex.DecodeString(stateId)
+	_, errEncoding := hex.DecodeString(stateId)
 	if errEncoding != nil {
 		return diag.Errorf("ID mismatch %s", errEncoding)
 	}
-	adminDB := client.Database("admin")
-	Users := adminDB.Collection("system.users")
-	_, err := Users.DeleteOne(ctx, bson.M{"_id": string(id) })
-	if err != nil {
-		return diag.Errorf("%s",err)
-	}
+
 	var userName = data.Get("name").(string)
 	var database = data.Get("auth_database").(string)
 	var userPassword = data.Get("password").(string)
+	
+	adminDB := client.Database(database)
 
+	result := adminDB.RunCommand(context.Background(), bson.D{{Key: "dropUser", Value: userName}})
+	if result.Err() != nil {
+		return diag.Errorf("%s",result.Err())
+	}
 	var roleList []Role
 	var user = DbUser{
 		Name:     userName,
@@ -100,7 +101,7 @@ func resourceDatabaseUserUpdate(ctx context.Context, data *schema.ResourceData, 
 	mapstructure.Decode(roles, &roleList)
 	err2 := createUser(client,user,roleList,database)
 	if err2 != nil {
-		return diag.Errorf("Could not create the user : %s ", err)
+		return diag.Errorf("Could not create the user : %s ", err2)
 	}
 
 	newId := database+"."+userName
