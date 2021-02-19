@@ -98,7 +98,10 @@ func resourceDatabaseUserUpdate(ctx context.Context, data *schema.ResourceData, 
 		Password: userPassword,
 	}
 	roles := data.Get("role").(*schema.Set).List()
-	mapstructure.Decode(roles, &roleList)
+	roleMapErr := mapstructure.Decode(roles, &roleList)
+	if roleMapErr != nil {
+		return diag.Errorf("Error decoding map : %s ", roleMapErr)
+	}
 	err2 := createUser(client,user,roleList,database)
 	if err2 != nil {
 		return diag.Errorf("Could not create the user : %s ", err2)
@@ -128,7 +131,10 @@ func resourceDatabaseUserCreate(ctx context.Context, data *schema.ResourceData, 
 		Password: userPassword,
 	}
 	roles := data.Get("role").(*schema.Set).List()
-	mapstructure.Decode(roles, &roleList)
+	roleMapErr := mapstructure.Decode(roles, &roleList)
+	if roleMapErr != nil {
+		return diag.Errorf("Error decoding map : %s ", roleMapErr)
+	}
 	err := createUser(client,user,roleList,database)
 	if err != nil {
 		return diag.Errorf("Could not create the user : %s ", err)
