@@ -47,11 +47,11 @@ func (resource Resource) String() string {
 func createUser(client *mongo.Client, user DbUser, roles []Role, database string) error {
 	var result *mongo.SingleResult
 	if len(roles) != 0  {
-		result = client.Database(database).RunCommand(context.Background(), bson.D{{"createUser", user.Name},
-			{"pwd", user.Password}, {"roles", roles}})
+		result = client.Database(database).RunCommand(context.Background(), bson.D{{Key: "createUser", Value: user.Name},
+			{Key: "pwd", Value: user.Password}, {Key: "roles", Value: roles}})
 	} else{
-		result = client.Database(database).RunCommand(context.Background(), bson.D{{"createUser", user.Name},
-			{"pwd", user.Password}, {"roles", []bson.M{}}})
+		result = client.Database(database).RunCommand(context.Background(), bson.D{{Key: "createUser", Value: user.Name},
+			{Key: "pwd", Value: user.Password}, {Key: "roles", Value: []bson.M{}}})
 	}
 
 	if result.Err() != nil {
@@ -73,17 +73,17 @@ func createRole(client *mongo.Client, role string, roles []Role, privilege []Pri
 		privileges = append(privileges,prv)
 	}
 	if len(roles) != 0 && len(privileges) != 0 {
-		result = client.Database(database).RunCommand(context.Background(), bson.D{{"createRole", role},
-			{"privileges", privileges}, {"roles", roles}})
+		result = client.Database(database).RunCommand(context.Background(), bson.D{{Key: "createRole", Value: role},
+			{Key: "privileges", Value: privileges}, {Key: "roles", Value: roles}})
 	}else if len(roles) == 0 && len(privileges) != 0 {
-		result = client.Database(database).RunCommand(context.Background(), bson.D{{"createRole", role},
-			{"privileges", privileges}, {"roles", []bson.M{}}})
+		result = client.Database(database).RunCommand(context.Background(), bson.D{{Key: "createRole", Value: role},
+			{Key: "privileges", Value: privileges}, {Key: "roles", Value: []bson.M{}}})
 	}else if len(roles) != 0 && len(privileges) == 0 {
-		result = client.Database(database).RunCommand(context.Background(), bson.D{{"createRole", role},
-			{"privileges", []bson.M{}}, {"roles", roles}})
+		result = client.Database(database).RunCommand(context.Background(), bson.D{{Key: "createRole", Value: role},
+			{Key: "privileges", Value: []bson.M{}}, {Key: "roles", Value: roles}})
 	}else{
-		result = client.Database(database).RunCommand(context.Background(), bson.D{{"createRole", role},
-			{"privileges", []bson.M{}}, {"roles", []bson.M{}}})
+		result = client.Database(database).RunCommand(context.Background(), bson.D{{Key: "createRole", Value: role},
+			{Key: "privileges", Value: []bson.M{}}, {Key: "roles", Value: []bson.M{}}})
 	}
 
 	if result.Err() != nil {

@@ -90,8 +90,14 @@ func resourceDatabaseRoleCreate(ctx context.Context, data *schema.ResourceData, 
 	privilege := data.Get("privilege").(*schema.Set).List()
 	roles := data.Get("inherited_role").(*schema.Set).List()
 
-	mapstructure.Decode(roles, &roleList)
-	mapstructure.Decode(privilege, &privileges)
+	roleMapErr := mapstructure.Decode(roles, &roleList)
+	if roleMapErr != nil {
+		return diag.Errorf("Error decoding map : %s ", roleMapErr)
+	}
+	privMapErr := mapstructure.Decode(privilege, &privileges)
+	if privMapErr != nil {
+		return diag.Errorf("Error decoding map : %s ", privMapErr)
+	}
 
 
 	err := createRole(client, role, roleList, privileges, database)
@@ -144,8 +150,14 @@ func resourceDatabaseRoleUpdate(ctx context.Context, data *schema.ResourceData, 
 	privilege := data.Get("privilege").(*schema.Set).List()
 	roles := data.Get("inherited_role").(*schema.Set).List()
 
-	mapstructure.Decode(roles, &roleList)
-	mapstructure.Decode(privilege, &privileges)
+	roleMapErr := mapstructure.Decode(roles, &roleList)
+	if roleMapErr != nil {
+		return diag.Errorf("Error decoding map : %s ", roleMapErr)
+	}
+	privMapErr := mapstructure.Decode(privilege, &privileges)
+	if privMapErr != nil {
+		return diag.Errorf("Error decoding map : %s ", privMapErr)
+	}
 
 	err2 := createRole(client, role, roleList, privileges, database)
 
