@@ -2,11 +2,28 @@ package mongodb
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
+	"errors"
 	"fmt"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
+
+type ClientConfig struct {
+	Host     string
+	Port     string
+	Username string
+	Password string
+	DB		 string
+	Ssl      bool
+	Ca       string
+	Cert     string
+	Key      string
+	CertPath string
+}
 type DbUser struct {
 	Name     string `json:"name"`
 	Password string `json:"password"`
@@ -28,6 +45,66 @@ type PrivilegeDto struct {
 type Privilege struct {
 	Resource Resource `json:"resource"`
 	Actions  []string `json:"actions"`
+}
+
+func (c *ClientConfig) MongoClient() (*mongo.Client, error) {
+
+	if c.Cert != "" || c.Key != "" {
+		if c.Cert == "" || c.Key == "" {
+			return nil, fmt.Errorf("cert_material, and key_material must be specified")
+		}
+
+		if c.CertPath != "" {
+			return nil, fmt.Errorf("cert_path must not be specified")
+		}
+
+		mongoClient, err := buildHTTPClientFromBytes([]byte(c.Ca), []byte(c.Cert), []byte(c.Key), c)
+		if err != nil {
+			return nil, err
+		}
+		return mongoClient,err
+	}
+	var arguments = ""
+	if c.Ssl {
+		arguments = "/?ssl=true"
+	}
+	var uri = "mongodb://" + c.Host + ":" + c.Port + arguments
+
+	client, err := mongo.NewClient(options.Client().ApplyURI(uri).SetAuth(options.Credential{
+		AuthSource: c.DB, Username: c.Username, Password: c.Password,
+	}))
+	return client, err
+}
+func buildHTTPClientFromBytes(caPEMCert, certPEMBlock, keyPEMBlock []byte, config *ClientConfig) (*mongo.Client, error) {
+	tlsConfig := &tls.Config{}
+	if certPEMBlock != nil && keyPEMBlock != nil {
+		tlsCert, err := tls.X509KeyPair(certPEMBlock, keyPEMBlock)
+		if err != nil {
+			return nil, err
+		}
+		tlsConfig.Certificates = []tls.Certificate{tlsCert}
+	}
+
+	if caPEMCert == nil || len(caPEMCert) == 0 {
+		tlsConfig.InsecureSkipVerify = true
+	} else {
+		caPool := x509.NewCertPool()
+		if !caPool.AppendCertsFromPEM(caPEMCert) {
+			return nil, errors.New("Could not add RootCA pem")
+		}
+		tlsConfig.RootCAs = caPool
+	}
+	var arguments = ""
+	if config.Ssl {
+		arguments = "/?ssl=true"
+	}
+	var uri = "mongodb://" + config.Host + ":" + config.Port + arguments
+
+	client, err := mongo.NewClient(options.Client().ApplyURI(uri).SetAuth(options.Credential{
+			AuthSource: config.DB, Username: config.Username , Password: config.Password,
+		}).SetTLSConfig(tlsConfig))
+
+	return client , err
 }
 
 func (privilege Privilege) String() string {
