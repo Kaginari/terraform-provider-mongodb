@@ -1,6 +1,6 @@
 # Terraform Provider Mongodb
 
-This repository is a Algolia Mongodb for [Terraform](https://www.terraform.io).
+This repository is a Terraform Mongodb for [Terraform](https://www.terraform.io).
 
 ### Requirements
 
@@ -47,7 +47,13 @@ nano /etc/hosts
 cd docker
 docker-compose up -d
 ````
+**1.4 : create admin user in mongo**
 
+````bash
+$ docker exec -it mongo -c mongo
+> use admin
+> db.createUser({ user: "root" , pwd: "root", roles: ["userAdminAnyDatabase", "dbAdminAnyDatabase", "readWriteAnyDatabase"]})
+````
 **2: Build the provider**
 
 follow the [Installation](#Installation)

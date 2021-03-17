@@ -3,7 +3,7 @@ terraform {
 
   required_providers {
     mongodb = {
-      source = "Kaginari/mongodb"
+      source = "registry.terraform.io/Kaginari/mongodb"
     }
   }
 }

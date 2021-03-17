@@ -18,6 +18,7 @@ provider "mongodb" {
   password = "root"
   auth_database = "admin"
   ssl = true
+  
 }
 ```
 
@@ -40,6 +41,31 @@ $  export MONGO_USR="xxxx"
 $  export MONGO_PWD="xxxx"
 $ terraform plan
 ```
+
+
+
+
+## Certificate information :
+Specify certificate information either with a directory or directly with the content of the files for connecting to the Mongodb host via TLS.
+
+```hcl
+provider "mongodb" {
+  host = "127.0.0.1"
+  port = "27017"
+  username = "root"
+  password = "root"
+  auth_database = "admin"
+  ssl = true
+  # -> specify either
+  cert_path = pathexpand("~/.mongodb")
+
+  # -> or the following
+  ca_material   = file(pathexpand("~/.mongodb/ca.pem")) # this can be omitted
+  cert_material = file(pathexpand("~/.mongodb/cert.pem"))
+  key_material  = file(pathexpand("~/.mongodb/key.pem"))
+  
+  }
+```
 ## Argument Reference
 
 In addition to [generic `provider`
@@ -53,6 +79,11 @@ arguments](https://www.terraform.io/docs/configuration/providers.html) (e.g.
 * `port` - (Optional) This is the port that your MongoDB Server uses. It must be
   provided, but it can also be sourced from the `MONGO_PORT`
   environment variable.
+
+* `cert_path` - (Optional) Path to a directory with certificate information for connecting to the Docker host via TLS. It is expected that the 3 files {ca, cert, key}.pem are present in the path. If the path is blank, the MONGODB_CERT_PATH will also be checked.
+
+* `ca_material`, `cert_material`, `key_material`, - (Optional) Content of ca.pem, cert.pem, and key.pem files for TLS authentication. Cannot be used together with cert_path. If ca_material is omitted the client does not check the servers certificate chain and host name.
+
 * `username ` - (Optional) Specifies a username with which to authenticate to the MongoDB database. It must be
   provided, but it can also be sourced from the `MONGO_USR`
   environment variable.

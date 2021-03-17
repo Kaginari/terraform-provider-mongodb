@@ -4,8 +4,6 @@ import (
 	"context"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 	"time"
 )
 
@@ -23,6 +21,31 @@ func Provider() *schema.Provider {
 				Required:    true,
 				DefaultFunc: schema.EnvDefaultFunc("MONGO_PORT", "27017"),
 				Description: "The mongodb server port",
+			},
+			"ca_material": {
+				Type:        schema.TypeString,
+				Optional:    true,
+				DefaultFunc: schema.EnvDefaultFunc("MONGODB_CA_MATERIAL", ""),
+				Description: "PEM-encoded content of Mongodb host CA certificate",
+			},
+			"cert_material": {
+				Type:        schema.TypeString,
+				Optional:    true,
+				DefaultFunc: schema.EnvDefaultFunc("MONGODB_CERT_MATERIAL", ""),
+				Description: "PEM-encoded content of Mongodb client certificate",
+			},
+			"key_material": {
+				Type:        schema.TypeString,
+				Optional:    true,
+				DefaultFunc: schema.EnvDefaultFunc("MONGODB_KEY_MATERIAL", ""),
+				Description: "PEM-encoded content of Mongodb client private key",
+			},
+
+			"cert_path": {
+				Type:        schema.TypeString,
+				Optional:    true,
+				DefaultFunc: schema.EnvDefaultFunc("MONGODB_CERT_PATH", ""),
+				Description: "Path to directory with Mongodb TLS config",
 			},
 			"username": {
 				Type:        schema.TypeString,
@@ -64,23 +87,20 @@ func Provider() *schema.Provider {
 func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}, diag.Diagnostics) {
 	var diags diag.Diagnostics
 
-	var host = d.Get("host").(string)
-	var port = d.Get("port").(string)
-	var user = d.Get("username").(string)
-	var pwd = d.Get("password").(string)
-	var database = d.Get("auth_database").(string)
-	var ssl = d.Get("ssl").(bool)
-	var arguments = ""
-	if ssl {
-		arguments = "/?ssl=true"
+	clientConfig := ClientConfig{
+		Host:     d.Get("host").(string),
+		Port:     d.Get("port").(string),
+		Username: d.Get("username").(string),
+		Password: d.Get("password").(string),
+		DB:       d.Get("auth_database").(string),
+		Ssl:      d.Get("ssl").(bool),
+		Ca:       d.Get("ca_material").(string),
+		Cert:     d.Get("cert_material").(string),
+		Key:      d.Get("key_material").(string),
+		CertPath: d.Get("cert_path").(string),
 	}
-	var uri = "mongodb://" + host + ":" + port + arguments
 
-
-
-	client, err := mongo.NewClient(options.Client().ApplyURI(uri).SetAuth(options.Credential{
-		AuthSource: database, Username: user, Password: pwd,
-	}))
+	client, err := clientConfig.MongoClient()
 
 	if err != nil {
 		return nil, diag.Errorf("Error initializing Mongo connection %s", err)

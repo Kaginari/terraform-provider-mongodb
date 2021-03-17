@@ -85,8 +85,6 @@ func resourceDatabaseRoleCreate(ctx context.Context, data *schema.ResourceData, 
 	var roleList []Role
 	var privileges []PrivilegeDto
 
-
-
 	privilege := data.Get("privilege").(*schema.Set).List()
 	roles := data.Get("inherited_role").(*schema.Set).List()
 
@@ -118,6 +116,7 @@ func resourceDatabaseRoleDelete(ctx context.Context, data *schema.ResourceData, 
 	if errEncoding != nil {
 		return diag.Errorf("ID mismatch %s", errEncoding)
 	}
+
 	adminDB := client.Database("admin")
 	Users := adminDB.Collection("system.roles")
 	_, err := Users.DeleteOne(ctx, bson.M{"_id": string(id) })
