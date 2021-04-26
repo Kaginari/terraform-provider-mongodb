@@ -47,12 +47,13 @@ type Privilege struct {
 	Resource Resource `json:"resource"`
 	Actions  []string `json:"actions"`
 }
-func prefixArgs(args string) string {
-	if args != "" {
-		return "&"
+func addArgs(arguments string,newArg string) string {
+	if arguments != "" {
+		return arguments+"&"+newArg
 	} else {
-		return "/?"
+		return "/?"+newArg
 	}
+
 }
 
 func (c *ClientConfig) MongoClient() (*mongo.Client, error) {
@@ -74,10 +75,10 @@ func (c *ClientConfig) MongoClient() (*mongo.Client, error) {
 	}
 	var arguments = ""
 	if c.Ssl {
-		arguments = prefixArgs(arguments)+"ssl=true"
+		arguments = addArgs(arguments,"ssl=true")
 	}
 	if c.ReplicaSet != "" {
-		arguments = prefixArgs(arguments)+"replicaSet="+c.ReplicaSet
+		arguments = addArgs(arguments,"replicaSet="+c.ReplicaSet)
 	}
 	var uri = "mongodb://" + c.Host + ":" + c.Port + arguments
 
@@ -107,10 +108,10 @@ func buildHTTPClientFromBytes(caPEMCert, certPEMBlock, keyPEMBlock []byte, confi
 	}
 	var arguments = ""
 	if config.Ssl {
-		arguments = prefixArgs(arguments)+"ssl=true"
+		arguments = addArgs(arguments,"ssl=true")
 	}
 	if config.ReplicaSet != "" {
-		arguments = prefixArgs(arguments)+"replicaSet="+config.ReplicaSet
+		arguments = addArgs(arguments,"replicaSet="+config.ReplicaSet)
 	}
 	var uri = "mongodb://" + config.Host + ":" + config.Port + arguments
 
