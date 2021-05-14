@@ -18,6 +18,28 @@ provider "mongodb" {
   password = "root"
   auth_database = "admin"
   ssl = true
+  replica_set = "replica-set" #optional
+  
+}
+```
+
+## Example Usage with ssl
+
+```hcl
+# Configure the MongoDB Provider
+provider "mongodb" {
+
+  insecure_skip_verify = true  # default false (set to true to ignore hostname verification) 
+  # -> specify either
+  cert_path = pathexpand("path/to/certificate")
+
+  # -> or the following ( you can use this if you are using a custom key and cert)
+  
+  ca_material   = file(pathexpand("path/to/certificate/ca.pem")) # this can be omitted
+  
+  cert_material = file(pathexpand("path/to/certificate/cert.pem"))
+  key_material  = file(pathexpand("path/to/certificate/key.pem"))
+
   
 }
 ```
