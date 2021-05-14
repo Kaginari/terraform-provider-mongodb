@@ -9,6 +9,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"path/filepath"
 )
 
 
@@ -74,6 +75,17 @@ func (c *ClientConfig) MongoClient() (*mongo.Client, error) {
 		}
 		return mongoClient,err
 	}
+	if c.CertPath != "" {
+		// If there is cert information, load it and use it.
+		ca := filepath.Join(c.CertPath, "ca.pem")
+		cert := filepath.Join(c.CertPath, "cert.pem")
+		key := filepath.Join(c.CertPath, "key.pem")
+		mongoClient , err := buildHttpClientFromCertPath([]byte(ca), []byte(cert) , []byte(key) , c)
+		if err != nil {
+			return nil, err
+		}
+		return mongoClient,err
+	}
 	var arguments = ""
 	if c.Ssl {
 		arguments = addArgs(arguments,"ssl=true")
@@ -88,9 +100,45 @@ func (c *ClientConfig) MongoClient() (*mongo.Client, error) {
 	}))
 	return client, err
 }
+
+func buildHttpClientFromCertPath(ca , cert , key []byte, config *ClientConfig) (*mongo.Client, error) {
+	tlsConfig := &tls.Config{}
+	if cert != nil && key != nil {
+		tlsCert, err := tls.X509KeyPair(cert, key)
+		if err != nil {
+			return nil, err
+		}
+		tlsConfig.Certificates = []tls.Certificate{tlsCert}
+	} else {
+		tlsConfig.InsecureSkipVerify = true
+	}
+	if ca == nil || len(ca) == 0 {
+		tlsConfig.InsecureSkipVerify = true
+	} else {
+		caPool := x509.NewCertPool()
+		if !caPool.AppendCertsFromPEM(ca) {
+			return nil, errors.New("Could not add RootCA pem")
+		}
+		tlsConfig.RootCAs = caPool
+	}
+	var arguments = ""
+	if config.Ssl {
+		arguments = addArgs(arguments,"ssl=true")
+	}
+	if config.ReplicaSet != "" {
+		arguments = addArgs(arguments,"replicaSet="+config.ReplicaSet)
+	}
+	var uri = "mongodb://" + config.Host + ":" + config.Port + arguments
+
+	client, err := mongo.NewClient(options.Client().ApplyURI(uri).SetAuth(options.Credential{
+		AuthSource: config.DB, Username: config.Username , Password: config.Password,
+	}).SetTLSConfig(tlsConfig))
+
+	return client , err
+
+}
 func buildHTTPClientFromBytes(caPEMCert, certPEMBlock, keyPEMBlock []byte, config *ClientConfig) (*mongo.Client, error) {
 	tlsConfig := &tls.Config{}
-
 	if certPEMBlock != nil && keyPEMBlock != nil {
 		tlsCert, err := tls.X509KeyPair(certPEMBlock, keyPEMBlock)
 		if err != nil {
