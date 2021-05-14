@@ -19,6 +19,7 @@ type ClientConfig struct {
 	Password string
 	DB		 string
 	Ssl      bool
+	InsecureSkipVerify bool
 	ReplicaSet string
 	Ca       string
 	Cert     string
@@ -89,6 +90,7 @@ func (c *ClientConfig) MongoClient() (*mongo.Client, error) {
 }
 func buildHTTPClientFromBytes(caPEMCert, certPEMBlock, keyPEMBlock []byte, config *ClientConfig) (*mongo.Client, error) {
 	tlsConfig := &tls.Config{}
+
 	if certPEMBlock != nil && keyPEMBlock != nil {
 		tlsCert, err := tls.X509KeyPair(certPEMBlock, keyPEMBlock)
 		if err != nil {
@@ -105,6 +107,9 @@ func buildHTTPClientFromBytes(caPEMCert, certPEMBlock, keyPEMBlock []byte, confi
 			return nil, errors.New("Could not add RootCA pem")
 		}
 		tlsConfig.RootCAs = caPool
+	}
+	if config.InsecureSkipVerify {
+		tlsConfig.InsecureSkipVerify = true
 	}
 	var arguments = ""
 	if config.Ssl {

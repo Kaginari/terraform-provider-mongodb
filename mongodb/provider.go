@@ -71,6 +71,12 @@ func Provider() *schema.Provider {
 				Default:     "",
 				Description: "The mongodb replica set",
 			},
+			"insecure_skip_verify": {
+				Type:        schema.TypeBool,
+				Optional:    true,
+				Default:     false,
+				Description: "ignore hostname verification",
+			},
 			"ssl": {
 				Type:        schema.TypeBool,
 				Optional:    true,
@@ -105,6 +111,7 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 		Cert:     d.Get("cert_material").(string),
 		Key:      d.Get("key_material").(string),
 		CertPath: d.Get("cert_path").(string),
+		InsecureSkipVerify: d.Get("insecure_skip_verify").(bool),
 	}
 
 	client, err := clientConfig.MongoClient()
