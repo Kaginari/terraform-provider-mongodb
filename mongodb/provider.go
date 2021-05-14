@@ -65,6 +65,12 @@ func Provider() *schema.Provider {
 				Default:     "admin",
 				Description: "The mongodb auth database",
 			},
+			"replica_set": {
+				Type:        schema.TypeString,
+				Optional:    true,
+				Default:     "",
+				Description: "The mongodb replica set",
+			},
 			"ssl": {
 				Type:        schema.TypeBool,
 				Optional:    true,
@@ -94,6 +100,7 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 		Password: d.Get("password").(string),
 		DB:       d.Get("auth_database").(string),
 		Ssl:      d.Get("ssl").(bool),
+		ReplicaSet:      d.Get("replica_set").(string),
 		Ca:       d.Get("ca_material").(string),
 		Cert:     d.Get("cert_material").(string),
 		Key:      d.Get("key_material").(string),

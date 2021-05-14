@@ -19,6 +19,7 @@ type ClientConfig struct {
 	Password string
 	DB		 string
 	Ssl      bool
+	ReplicaSet string
 	Ca       string
 	Cert     string
 	Key      string
@@ -46,6 +47,14 @@ type Privilege struct {
 	Resource Resource `json:"resource"`
 	Actions  []string `json:"actions"`
 }
+func addArgs(arguments string,newArg string) string {
+	if arguments != "" {
+		return arguments+"&"+newArg
+	} else {
+		return "/?"+newArg
+	}
+
+}
 
 func (c *ClientConfig) MongoClient() (*mongo.Client, error) {
 
@@ -66,7 +75,10 @@ func (c *ClientConfig) MongoClient() (*mongo.Client, error) {
 	}
 	var arguments = ""
 	if c.Ssl {
-		arguments = "/?ssl=true"
+		arguments = addArgs(arguments,"ssl=true")
+	}
+	if c.ReplicaSet != "" {
+		arguments = addArgs(arguments,"replicaSet="+c.ReplicaSet)
 	}
 	var uri = "mongodb://" + c.Host + ":" + c.Port + arguments
 
@@ -96,7 +108,10 @@ func buildHTTPClientFromBytes(caPEMCert, certPEMBlock, keyPEMBlock []byte, confi
 	}
 	var arguments = ""
 	if config.Ssl {
-		arguments = "/?ssl=true"
+		arguments = addArgs(arguments,"ssl=true")
+	}
+	if config.ReplicaSet != "" {
+		arguments = addArgs(arguments,"replicaSet="+config.ReplicaSet)
 	}
 	var uri = "mongodb://" + config.Host + ":" + config.Port + arguments
 
