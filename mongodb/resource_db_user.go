@@ -10,6 +10,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"strconv"
 	"time"
+	"strings"
 )
 
 func resourceDatabaseUser() *schema.Resource {
@@ -60,16 +61,24 @@ func resourceDatabaseUser() *schema.Resource {
 func resourceDatabaseUserDelete(ctx context.Context, data *schema.ResourceData, i interface{}) diag.Diagnostics {
 	var client = i.(*mongo.Client)
 	var stateId = data.State().ID
+	var database = data.Get("auth_database").(string)
+
 	id, errEncoding := hex.DecodeString(stateId)
 	if errEncoding != nil {
 		return diag.Errorf("ID mismatch %s", errEncoding)
 	}
-	adminDB := client.Database("admin")
-	Users := adminDB.Collection("system.users")
-	_, err := Users.DeleteOne(ctx, bson.M{"_id": string(id) })
-	if err != nil {
-		return diag.Errorf("%s",err)
+
+	// StateID is a concatination of database and username. We only use the username here.
+	splitId := strings.Split(string(id), ".")
+	userName := splitId[1]
+
+	adminDB := client.Database(database)
+
+	result := adminDB.RunCommand(context.Background(), bson.D{{Key: "dropUser", Value: userName}})
+	if result.Err() != nil {
+		return diag.Errorf("%s",result.Err())
 	}
+
 	return resourceDatabaseUserRead(ctx, data, i)
 }
 
@@ -146,7 +155,7 @@ func resourceDatabaseUserCreate(ctx context.Context, data *schema.ResourceData, 
 }
 
 func importDatabaseUserState(ctx context.Context, data *schema.ResourceData, i interface{}) ([]*schema.ResourceData, error) {
-	if err := data.Set("database", data.Get("database")); err != nil {
+	if err := data.Set("auth_database", data.Get("auth_database")); err != nil {
 		return nil, err
 	}
 	data.SetId(strconv.FormatInt(time.Now().Unix(), 10))
