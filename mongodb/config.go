@@ -95,10 +95,40 @@ func (c *ClientConfig) MongoClient() (*mongo.Client, error) {
 	}
 	var uri = "mongodb://" + c.Host + ":" + c.Port + arguments
 
+	if c.Ca != "" {
+		tlsConfig, err := getTLSConfigWithAllServerCertificates([]byte(c.Ca))
+		if err != nil {
+			return nil, err
+		}
+
+		mongoClient, err := mongo.NewClient(options.Client().ApplyURI(uri).SetAuth(options.Credential{
+			AuthSource: c.DB, Username: c.Username, Password: c.Password,
+		}).SetTLSConfig(tlsConfig))
+
+		return mongoClient, err
+	}
+
 	client, err := mongo.NewClient(options.Client().ApplyURI(uri).SetAuth(options.Credential{
 		AuthSource: c.DB, Username: c.Username, Password: c.Password,
 	}))
 	return client, err
+}
+
+func getTLSConfigWithAllServerCertificates(ca []byte) (*tls.Config, error) {
+	/* As of version 1.2.1, the MongoDB Go Driver will only use the first CA server certificate found in sslcertificateauthorityfile.
+	   The code below addresses this limitation by manually appending all server certificates found in sslcertificateauthorityfile
+	   to a custom TLS configuration used during client creation. */
+
+	tlsConfig := new(tls.Config)
+
+	tlsConfig.RootCAs = x509.NewCertPool()
+	ok := tlsConfig.RootCAs.AppendCertsFromPEM(ca)
+
+	if !ok {
+		return tlsConfig, errors.New("Failed parsing pem file")
+	}
+
+	return tlsConfig, nil
 }
 
 func buildHttpClientFromCertPath(ca , cert , key []byte, config *ClientConfig) (*mongo.Client, error) {
