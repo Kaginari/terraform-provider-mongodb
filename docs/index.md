@@ -30,15 +30,8 @@ provider "mongodb" {
 provider "mongodb" {
 
   insecure_skip_verify = true  # default false (set to true to ignore hostname verification) 
-  # -> specify either
-  cert_path = pathexpand("path/to/certificate")
-
-  # -> or the following ( you can use this if you are using a custom key and cert)
-  
-  ca_material   = file(pathexpand("path/to/certificate/ca.pem")) # this can be omitted
-  
-  cert_material = file(pathexpand("path/to/certificate/cert.pem"))
-  key_material  = file(pathexpand("path/to/certificate/key.pem"))
+  # -> specify certificate path
+  certificate = file(pathexpand("path/to/certificate/ca.pem"))
 
   
 }
@@ -79,13 +72,8 @@ provider "mongodb" {
   auth_database = "admin"
   ssl = true
   # -> specify either
-  cert_path = pathexpand("~/.mongodb")
+  certificate = pathexpand("~/.mongodb/ca.pem")
 
-  # -> or the following
-  ca_material   = file(pathexpand("~/.mongodb/ca.pem")) # this can be omitted
-  cert_material = file(pathexpand("~/.mongodb/cert.pem"))
-  key_material  = file(pathexpand("~/.mongodb/key.pem"))
-  
   }
 ```
 ## Argument Reference
@@ -102,9 +90,7 @@ arguments](https://www.terraform.io/docs/configuration/providers.html) (e.g.
   provided, but it can also be sourced from the `MONGO_PORT`
   environment variable.
 
-* `cert_path` - (Optional) Path to a directory with certificate information for connecting to the Docker host via TLS. It is expected that the 3 files {ca, cert, key}.pem are present in the path. If the path is blank, the MONGODB_CERT_PATH will also be checked.
-
-* `ca_material`, `cert_material`, `key_material`, - (Optional) Content of ca.pem, cert.pem, and key.pem files for TLS authentication. Cannot be used together with cert_path. If ca_material is omitted the client does not check the servers certificate chain and host name.
+* `certificate` - (Optional) Path to a directory with certificate files  for connecting to the Docker host via TLS. I. If the path is blank, the MONGODB_CERT will also be checked.
 
 * `username ` - (Optional) Specifies a username with which to authenticate to the MongoDB database. It must be
   provided, but it can also be sourced from the `MONGO_USR`

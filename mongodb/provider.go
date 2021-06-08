@@ -22,31 +22,13 @@ func Provider() *schema.Provider {
 				DefaultFunc: schema.EnvDefaultFunc("MONGO_PORT", "27017"),
 				Description: "The mongodb server port",
 			},
-			"ca_material": {
+			"certificate": {
 				Type:        schema.TypeString,
 				Optional:    true,
-				DefaultFunc: schema.EnvDefaultFunc("MONGODB_CA_MATERIAL", ""),
+				DefaultFunc: schema.EnvDefaultFunc("MONGODB_CERT", ""),
 				Description: "PEM-encoded content of Mongodb host CA certificate",
 			},
-			"cert_material": {
-				Type:        schema.TypeString,
-				Optional:    true,
-				DefaultFunc: schema.EnvDefaultFunc("MONGODB_CERT_MATERIAL", ""),
-				Description: "PEM-encoded content of Mongodb client certificate",
-			},
-			"key_material": {
-				Type:        schema.TypeString,
-				Optional:    true,
-				DefaultFunc: schema.EnvDefaultFunc("MONGODB_KEY_MATERIAL", ""),
-				Description: "PEM-encoded content of Mongodb client private key",
-			},
 
-			"cert_path": {
-				Type:        schema.TypeString,
-				Optional:    true,
-				DefaultFunc: schema.EnvDefaultFunc("MONGODB_CERT_PATH", ""),
-				Description: "Path to directory with Mongodb TLS config",
-			},
 			"username": {
 				Type:        schema.TypeString,
 				Required:    true,
@@ -107,10 +89,7 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 		DB:       d.Get("auth_database").(string),
 		Ssl:      d.Get("ssl").(bool),
 		ReplicaSet:      d.Get("replica_set").(string),
-		Ca:       d.Get("ca_material").(string),
-		Cert:     d.Get("cert_material").(string),
-		Key:      d.Get("key_material").(string),
-		CertPath: d.Get("cert_path").(string),
+		Certificate:       d.Get("certificate").(string),
 		InsecureSkipVerify: d.Get("insecure_skip_verify").(bool),
 	}
 

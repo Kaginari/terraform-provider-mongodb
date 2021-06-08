@@ -9,7 +9,6 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
-	"path/filepath"
 )
 
 
@@ -22,10 +21,8 @@ type ClientConfig struct {
 	Ssl      bool
 	InsecureSkipVerify bool
 	ReplicaSet string
-	Ca       string
-	Cert     string
-	Key      string
-	CertPath string
+	Certificate	    string
+
 }
 type DbUser struct {
 	Name     string `json:"name"`
@@ -60,32 +57,7 @@ func addArgs(arguments string,newArg string) string {
 
 func (c *ClientConfig) MongoClient() (*mongo.Client, error) {
 
-	if c.Cert != "" || c.Key != "" {
-		if c.Cert == "" || c.Key == "" {
-			return nil, fmt.Errorf("cert_material, and key_material must be specified")
-		}
 
-		if c.CertPath != "" {
-			return nil, fmt.Errorf("cert_path must not be specified")
-		}
-
-		mongoClient, err := buildHTTPClientFromBytes([]byte(c.Ca), []byte(c.Cert), []byte(c.Key), c)
-		if err != nil {
-			return nil, err
-		}
-		return mongoClient,err
-	}
-	if c.CertPath != "" {
-		// If there is cert information, load it and use it.
-		ca := filepath.Join(c.CertPath, "ca.pem")
-		cert := filepath.Join(c.CertPath, "cert.pem")
-		key := filepath.Join(c.CertPath, "key.pem")
-		mongoClient , err := buildHttpClientFromCertPath([]byte(ca), []byte(cert) , []byte(key) , c)
-		if err != nil {
-			return nil, err
-		}
-		return mongoClient,err
-	}
 	var arguments = ""
 	if c.Ssl {
 		arguments = addArgs(arguments,"ssl=true")
@@ -95,8 +67,12 @@ func (c *ClientConfig) MongoClient() (*mongo.Client, error) {
 	}
 	var uri = "mongodb://" + c.Host + ":" + c.Port + arguments
 
-	if c.Ca != "" {
-		tlsConfig, err := getTLSConfigWithAllServerCertificates([]byte(c.Ca))
+	/*
+	@Since: v0.0.7
+	add certificate support for documentDB
+	 */
+	if c.Certificate != "" {
+		tlsConfig, err := getTLSConfigWithAllServerCertificates([]byte(c.Certificate))
 		if err != nil {
 			return nil, err
 		}
