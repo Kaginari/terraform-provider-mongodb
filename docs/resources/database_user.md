@@ -68,6 +68,16 @@ Block mapping a user's role to a database / collection. A role allows the user t
 -> **NOTE:** you can also use [built-in-roles](https://docs.mongodb.com/manual/reference/built-in-roles/index.html) 
 * `db`   - (Required) Database on which the user has the specified role. A role on the `admin` database can include privileges that apply to the other databases.
 
+
+
 ## Import
 
-######Terraform import are not yet supported
+Mongodb users can be imported using the hex encoded id, e.g. for a user named `user_test` and his database id `test_db` :
+
+```sh
+$ echo "test_db.user_test" | xxd -ps -c 200 | tr -d '\n'
+## this is the output of the command above it will encode db.username to HEX 
+746573745f64622e757365725f746573740a
+
+$ terraform import mongodb_db_user.example_user  746573745f64622e757365725f746573740a
+```

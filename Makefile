@@ -10,7 +10,7 @@ OS_ARCH=linux_amd64
 HOSTNAME=registry.terraform.io
 NAMESPACE=Kaginari
 NAME=mongodb
-VERSION=0.0.1
+VERSION=9.9.9
 ## on linux base os
 TERRAFORM_PLUGINS_DIRECTORY=~/.terraform.d/plugins/${HOSTNAME}/${NAMESPACE}/${NAME}/${VERSION}/${OS_ARCH}
 

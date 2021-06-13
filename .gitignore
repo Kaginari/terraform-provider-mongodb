@@ -3,3 +3,5 @@
 **/*.idea
 **/.terraform
 **/*.locl.hcl
+**/testgo/**
+**/.terraform.lock.hcl

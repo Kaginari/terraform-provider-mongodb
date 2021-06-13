@@ -4,6 +4,7 @@ terraform {
   required_providers {
     mongodb = {
       source = "registry.terraform.io/Kaginari/mongodb"
+      version = "9.9.9"
     }
   }
 }
@@ -49,6 +50,11 @@ resource "mongodb_db_role" "role_2" {
   inherited_role {
     role = mongodb_db_role.role.name
     db =   "admin"
+  }
+  privilege {
+    db = "not_inhireted"
+    collection = "*"
+    actions = ["collStats"]
   }
 }
 resource "mongodb_db_role" "role4" {

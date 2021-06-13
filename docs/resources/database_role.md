@@ -81,4 +81,14 @@ Each object in the inheritedRoles array represents a key-value pair indicating t
 
 ## Import
 
-######Terraform import are not yet supported
+## Import
+
+Mongodb users can be imported using the hex encoded id, e.g. for a user named `user_test` and his database id `test_db` :
+
+```sh
+$ echo "test_db.role_test" | xxd -ps -c 200 | tr -d '\n'
+## this is the output of the command above it will encode db.rolename to HEX 
+746573745f64622e726f6c655f746573740a
+
+$ terraform import mongodb_db_role.example_role  746573745f64622e726f6c655f746573740a
+```

@@ -3,13 +3,13 @@ package mongodb
 import (
 	"context"
 	"encoding/hex"
+	"fmt"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/mitchellh/mapstructure"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
-	"strconv"
-	"time"
+	"strings"
 )
 
 func resourceDatabaseRole() *schema.Resource {
@@ -19,7 +19,7 @@ func resourceDatabaseRole() *schema.Resource {
 		UpdateContext: resourceDatabaseRoleUpdate,
 		DeleteContext: resourceDatabaseRoleDelete,
 		Importer: &schema.ResourceImporter{
-			StateContext: importDatabaseRoleState,
+			StateContext: schema.ImportStatePassthroughContext,
 		},
 		Schema: map[string]*schema.Schema{
 			"database": {
@@ -173,13 +173,61 @@ func resourceDatabaseRoleUpdate(ctx context.Context, data *schema.ResourceData, 
 
 func resourceDatabaseRoleRead(ctx context.Context, data *schema.ResourceData, i interface{}) diag.Diagnostics {
 	var diags diag.Diagnostics
+	var client = i.(*mongo.Client)
+	stateID := data.State().ID
+	roleName, database , err := resourceDatabaseRoleParseId(stateID)
+	if err != nil {
+		return diag.Errorf("%s",err)
+	}
+	result , decodeError := getRole(client,roleName,database)
+	if decodeError != nil {
+		return diag.Errorf("Error decoding role : %s ", err)
+	}
+	if len(result.Roles) == 0 {
+		return diag.Errorf("Role does not exist")
+	}
+	inheritedRoles := make([]interface{}, len(result.Roles[0].InheritedRoles))
+
+	for i, s := range result.Roles[0].InheritedRoles {
+		inheritedRoles[i] = map[string]interface{}{
+			"db": s.Db,
+			"role": s.Role,
+		}
+	}
+	data.Set("inherited_role", inheritedRoles)
+	privileges := make([]interface{}, len(result.Roles[0].Privileges))
+
+	for i, s := range result.Roles[0].Privileges {
+		privileges[i] = map[string]interface{}{
+			"db": s.Resource.Db,
+			"collection": s.Resource.Collection,
+			"actions": s.Actions,
+		}
+	}
+	data.Set("privilege", privileges)
+
+	data.Set("database", database)
+	data.Set("name", roleName)
+
+	data.SetId(stateID)
 	diags = nil
 	return diags
 }
-func importDatabaseRoleState(ctx context.Context, data *schema.ResourceData, i interface{}) ([]*schema.ResourceData, error) {
-	if err := data.Set("name", data.Get("name")); err != nil {
-		return nil, err
+
+func resourceDatabaseRoleParseId(id string) (string, string, error) {
+	result , errEncoding := hex.DecodeString(id)
+
+	if errEncoding != nil {
+		return "", "", fmt.Errorf("unexpected format of ID Error : %s", errEncoding)
 	}
-	data.SetId(strconv.FormatInt(time.Now().Unix(), 10))
-	return []*schema.ResourceData{data}, nil
+	parts := strings.SplitN(string(result), ".", 2)
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+		return "", "", fmt.Errorf("unexpected format of ID (%s), expected database.roleName", id)
+	}
+
+	database := parts[0]
+	roleName := parts[1]
+
+	return roleName , database , nil
 }
+

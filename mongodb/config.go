@@ -46,6 +46,34 @@ type Privilege struct {
 	Resource Resource `json:"resource"`
 	Actions  []string `json:"actions"`
 }
+type SingleResultGetUser struct {
+	Users []struct {
+		Id     string `json:"_id"`
+		User  string `json:"user"`
+		Db    string `json:"db"`
+		Roles []struct {
+			Role string `json:"role"`
+			Db   string `json:"db"`
+		} `json:"roles"`
+	} `json:"users"`
+}
+type SingleResultGetRole struct {
+	Roles []struct {
+		Role      string `json:"role"`
+		Db        string `json:"db"`
+		InheritedRoles []struct {
+			Role string `json:"role"`
+			Db   string `json:"db"`
+		} `json:"inheritedRoles"`
+		Privileges []struct {
+			Resource struct {
+				Db         string `json:"db"`
+				Collection string `json:"collection"`
+			} `json:"resource"`
+			Actions []string `json:"actions"`
+		} `json:"privileges"`
+	} `json:"roles"`
+}
 func addArgs(arguments string,newArg string) string {
 	if arguments != "" {
 		return arguments+"&"+newArg
@@ -209,6 +237,38 @@ func createUser(client *mongo.Client, user DbUser, roles []Role, database string
 		return result.Err()
 	}
 	return nil
+}
+
+func getUser(client *mongo.Client, username string, database string) (SingleResultGetUser , error) {
+	var result *mongo.SingleResult
+	result = client.Database(database).RunCommand(context.Background(), bson.D{{Key: "usersInfo", Value: bson.D{
+		{Key: "user", Value: username},
+		{Key: "db", Value: database},
+	},
+	}})
+	var decodedResult SingleResultGetUser
+	err := result.Decode(&decodedResult)
+	if err != nil {
+		return decodedResult , err
+	}
+	return decodedResult , nil
+}
+
+func getRole(client *mongo.Client, roleName string, database string) (SingleResultGetRole , error)  {
+	var result *mongo.SingleResult
+	result = client.Database(database).RunCommand(context.Background(), bson.D{{Key: "rolesInfo", Value: bson.D{
+		{Key: "role", Value: roleName},
+		{Key: "db", Value: database},
+	},
+	},
+	{ Key: "showPrivileges" , Value: true},
+	})
+	var decodedResult SingleResultGetRole
+	err := result.Decode(&decodedResult)
+	if err != nil {
+		return decodedResult , err
+	}
+	return decodedResult , nil
 }
 
 func createRole(client *mongo.Client, role string, roles []Role, privilege []PrivilegeDto, database string) error {
