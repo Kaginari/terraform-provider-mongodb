@@ -65,6 +65,12 @@ func Provider() *schema.Provider {
 				Default:     false,
 				Description: "ssl activation",
 			},
+			"retrywrites": {
+				Type:        schema.TypeBool,
+				Optional:    true,
+				Default:     true,
+				Description: "Retryable Writes",
+			},
 		},
 		ResourcesMap: map[string]*schema.Resource{
 			"mongodb_db_user": resourceDatabaseUser(),
@@ -91,6 +97,7 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 		ReplicaSet:      d.Get("replica_set").(string),
 		Certificate:       d.Get("certificate").(string),
 		InsecureSkipVerify: d.Get("insecure_skip_verify").(bool),
+		RetryWrites: d.Get("retrywrites").(bool),
 	}
 
 	client, err := clientConfig.MongoClient()
