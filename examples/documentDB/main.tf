@@ -14,7 +14,7 @@ provider "mongodb" {
   username = "Montaroot"
   password = ""
   ssl = true
-  certificate = file(pathexpand("/home/monta/Desktop/DocumentDB/rds-combined-ca-bundle.pem"))
+  certificate = file(pathexpand("rds-combined-ca-bundle.pem"))
 }
 resource "mongodb_db_user" "user" {
   auth_database = "admin"
