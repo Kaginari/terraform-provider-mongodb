@@ -1,0 +1,37 @@
+terraform {
+  required_version = ">= 0.13"
+
+  required_providers {
+    mongodb = {
+      source = "registry.terraform.io/Kaginari/mongodb"
+      version = "9.9.9"
+    }
+  }
+}
+provider "mongodb" {
+  host = "documentdb-test-terraform.cluster-ro-ctclcdufsrkx.eu-west-3.docdb.amazonaws.com"
+  port = "27017"
+  username = "Montaroot"
+  password = ""
+  ssl = true
+  certificate = file(pathexpand("/home/monta/Desktop/DocumentDB/rds-combined-ca-bundle.pem"))
+}
+resource "mongodb_db_user" "user" {
+  auth_database = "admin"
+  name = "monta"
+  password = "monta"
+  role {
+    role = "readAnyDatabase"
+    db =   "admin"
+  }
+  role {
+    role = "readWrite"
+    db =   "local"
+  }
+  role {
+    role = "readWrite"
+    db =   "monta"
+  }
+
+
+}
