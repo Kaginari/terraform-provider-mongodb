@@ -11,7 +11,7 @@ terraform {
 provider "mongodb" {
   host = "documentdb-test-terraform.cluster-ro-ctclcdufsrkx.eu-west-3.docdb.amazonaws.com"
   port = "27017"
-  username = "Montaroot"
+  username = ""
   password = ""
   ssl = true
   certificate = file(pathexpand("rds-combined-ca-bundle.pem"))
