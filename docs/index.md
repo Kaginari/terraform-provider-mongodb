@@ -19,6 +19,7 @@ provider "mongodb" {
   auth_database = "admin"
   ssl = true
   replica_set = "replica-set" #optional
+  retrywrites = false # default true
   
 }
 ```
@@ -100,4 +101,5 @@ arguments](https://www.terraform.io/docs/configuration/providers.html) (e.g.
   environment variable.
 * `auth_database   ` - (Required) Specifies the authentication database where the specified `username` has been created.
 * `ssl   ` - (Optional) `default = false `set it to true to connect to a deployment using TLS/SSL with SCRAM authentication.
-  
+* `retrywrites   ` - (Optional) `default = true `Retryable writes allow MongoDB drivers to automatically retry certain write operations a single time if they encounter network errors, or if they cannot find a healthy primary in the replica sets or sharded cluster.
+

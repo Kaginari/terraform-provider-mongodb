@@ -75,9 +75,9 @@ Block mapping a user's role to a database / collection. A role allows the user t
 Mongodb users can be imported using the hex encoded id, e.g. for a user named `user_test` and his database id `test_db` :
 
 ```sh
-$ echo "test_db.user_test" | xxd -ps -c 200 | tr -d '\n'
+$ printf '%s' "test_db.user_test" | base64
 ## this is the output of the command above it will encode db.username to HEX 
-746573745f64622e757365725f746573740a
+dGVzdF9kYi51c2VyX3Rlc3Q=
 
-$ terraform import mongodb_db_user.example_user  746573745f64622e757365725f746573740a
+$ terraform import mongodb_db_user.example_user  dGVzdF9kYi51c2VyX3Rlc3Q=
 ```

@@ -2,7 +2,7 @@ package mongodb
 
 import (
 	"context"
-	"encoding/hex"
+	"encoding/base64"
 	"fmt"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -104,15 +104,15 @@ func resourceDatabaseRoleCreate(ctx context.Context, data *schema.ResourceData, 
 		return diag.Errorf("Could not create the role : %s ", err)
 	}
 	str := database+"."+role
-	hx := hex.EncodeToString([]byte(str))
-	data.SetId(hx)
+	encoded := base64.StdEncoding.EncodeToString([]byte(str))
+	data.SetId(encoded)
 	return resourceDatabaseRoleRead(ctx, data, i)
 }
 
 func resourceDatabaseRoleDelete(ctx context.Context, data *schema.ResourceData, i interface{}) diag.Diagnostics {
 	var client = i.(*mongo.Client)
 	var stateId = data.State().ID
-	id, errEncoding := hex.DecodeString(stateId)
+	id, errEncoding := base64.StdEncoding.DecodeString(stateId)
 	if errEncoding != nil {
 		return diag.Errorf("ID mismatch %s", errEncoding)
 	}
@@ -124,7 +124,7 @@ func resourceDatabaseRoleDelete(ctx context.Context, data *schema.ResourceData, 
 		return diag.Errorf("%s",err)
 	}
 
-	return resourceDatabaseRoleRead(ctx, data, i)
+	return nil
 
 }
 
@@ -133,7 +133,7 @@ func resourceDatabaseRoleUpdate(ctx context.Context, data *schema.ResourceData, 
 	var role = data.Get("name").(string)
 	var database = data.Get("database").(string)
 	var stateId = data.State().ID
-	id, errEncoding := hex.DecodeString(stateId)
+	id, errEncoding := base64.StdEncoding.DecodeString(stateId)
 	if errEncoding != nil {
 		return diag.Errorf("ID mismatch %s", errEncoding)
 	}
@@ -164,8 +164,8 @@ func resourceDatabaseRoleUpdate(ctx context.Context, data *schema.ResourceData, 
 		return diag.Errorf("Could not create the role  :  %s ", err)
 	}
 	str := database+"."+role
-	hx := hex.EncodeToString([]byte(str))
-	data.SetId(hx)
+	encoded := base64.StdEncoding.EncodeToString([]byte(str))
+	data.SetId(encoded)
 
 
 	return resourceDatabaseRoleRead(ctx, data, i)
@@ -194,7 +194,10 @@ func resourceDatabaseRoleRead(ctx context.Context, data *schema.ResourceData, i 
 			"role": s.Role,
 		}
 	}
-	data.Set("inherited_role", inheritedRoles)
+	dataSetError := data.Set("inherited_role", inheritedRoles)
+	if dataSetError != nil {
+		return diag.Errorf("Error setting  inherited roles : %s ", err)
+	}
 	privileges := make([]interface{}, len(result.Roles[0].Privileges))
 
 	for i, s := range result.Roles[0].Privileges {
@@ -204,10 +207,18 @@ func resourceDatabaseRoleRead(ctx context.Context, data *schema.ResourceData, i 
 			"actions": s.Actions,
 		}
 	}
-	data.Set("privilege", privileges)
-
-	data.Set("database", database)
-	data.Set("name", roleName)
+	dataSetError = data.Set("privilege", privileges)
+	if dataSetError != nil {
+		return diag.Errorf("Error setting role privilege : %s ", err)
+	}
+	dataSetError = data.Set("database", database)
+	if dataSetError != nil {
+		return diag.Errorf("Error setting role database : %s ", err)
+	}
+	dataSetError = data.Set("name", roleName)
+	if dataSetError != nil {
+		return diag.Errorf("Error setting  role nam: %s ", err)
+	}
 
 	data.SetId(stateID)
 	diags = nil
@@ -215,7 +226,7 @@ func resourceDatabaseRoleRead(ctx context.Context, data *schema.ResourceData, i 
 }
 
 func resourceDatabaseRoleParseId(id string) (string, string, error) {
-	result , errEncoding := hex.DecodeString(id)
+	result , errEncoding := base64.StdEncoding.DecodeString(id)
 
 	if errEncoding != nil {
 		return "", "", fmt.Errorf("unexpected format of ID Error : %s", errEncoding)
