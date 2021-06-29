@@ -134,7 +134,7 @@ func resourceDatabaseUserRead(ctx context.Context, data *schema.ResourceData, i 
 		return diag.Errorf("Error decoding user : %s ", err)
 	}
 	if len(result.Users) == 0 {
-		return diag.Errorf("user does not exist" , result)
+		return diag.Errorf("user does not exist ")
 	}
 	roles := make([]interface{}, len(result.Users[0].Roles))
 
