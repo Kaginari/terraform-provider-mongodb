@@ -9,6 +9,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"strconv"
 )
 
 
@@ -21,8 +22,8 @@ type ClientConfig struct {
 	Ssl      bool
 	InsecureSkipVerify bool
 	ReplicaSet string
+	RetryWrites bool
 	Certificate	    string
-
 }
 type DbUser struct {
 	Name     string `json:"name"`
@@ -87,6 +88,9 @@ func (c *ClientConfig) MongoClient() (*mongo.Client, error) {
 
 
 	var arguments = ""
+
+	arguments = addArgs(arguments,"retrywrites="+strconv.FormatBool(c.RetryWrites))
+
 	if c.Ssl {
 		arguments = addArgs(arguments,"ssl=true")
 	}
@@ -156,6 +160,9 @@ func buildHttpClientFromCertPath(ca , cert , key []byte, config *ClientConfig) (
 		tlsConfig.RootCAs = caPool
 	}
 	var arguments = ""
+
+	arguments = addArgs(arguments,"retrywrites="+strconv.FormatBool(config.RetryWrites))
+
 	if config.Ssl {
 		arguments = addArgs(arguments,"ssl=true")
 	}
@@ -194,6 +201,9 @@ func buildHTTPClientFromBytes(caPEMCert, certPEMBlock, keyPEMBlock []byte, confi
 		tlsConfig.InsecureSkipVerify = true
 	}
 	var arguments = ""
+
+	arguments = addArgs(arguments,"retrywrites="+strconv.FormatBool(config.RetryWrites))
+
 	if config.Ssl {
 		arguments = addArgs(arguments,"ssl=true")
 	}
