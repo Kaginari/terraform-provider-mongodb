@@ -144,10 +144,18 @@ func resourceDatabaseUserRead(ctx context.Context, data *schema.ResourceData, i 
 				"role": s.Role,
 			}
 	}
-	data.Set("role", roles)
-	data.Set("auth_database", database)
-	data.Set("password", data.Get("password"))
-
+	dataSetError := data.Set("role", roles)
+	if dataSetError != nil  {
+		return diag.Errorf("error setting role : %s " , dataSetError)
+	}
+	dataSetError = data.Set("auth_database", database)
+	if dataSetError != nil  {
+		return diag.Errorf("error setting auth_db : %s " , dataSetError)
+	}
+	dataSetError = data.Set("password", data.Get("password"))
+	if dataSetError != nil  {
+		return diag.Errorf("error setting password : %s " , dataSetError)
+	}
 	data.SetId(stateID)
 	return nil
 }
