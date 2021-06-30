@@ -128,7 +128,6 @@ func resourceDatabaseUserUpdate(ctx context.Context, data *schema.ResourceData, 
 }
 
 func resourceDatabaseUserRead(ctx context.Context, data *schema.ResourceData, i interface{}) diag.Diagnostics {
-	var diags diag.Diagnostics
 	var config = i.(*MongoDatabaseConfiguration)
 	client , connectionError := MongoClientInit(config)
 	if connectionError != nil {
