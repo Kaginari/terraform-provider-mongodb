@@ -10,6 +10,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"strconv"
+	"time"
 )
 
 
@@ -239,4 +240,23 @@ func createRole(client *mongo.Client, role string, roles []Role, privilege []Pri
 		return result.Err()
 	}
 	return nil
+}
+
+func MongoClientInit(conf *MongoDatabaseConfiguration)( *mongo.Client , error) {
+
+	client, err := conf.Config.MongoClient()
+	if err != nil {
+		return nil, err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(),conf.MaxConnLifetime*time.Second)
+	defer cancel()
+	err = client.Connect(ctx)
+	if err != nil {
+		return nil, err
+	}
+	err = client.Ping(ctx,nil)
+	if err != nil {
+		return nil, err
+	}
+	return client , nil
 }

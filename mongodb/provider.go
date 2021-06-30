@@ -84,6 +84,10 @@ func Provider() *schema.Provider {
 	}
 }
 
+type MongoDatabaseConfiguration struct {
+	Config          *ClientConfig
+	MaxConnLifetime time.Duration
+}
 func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}, diag.Diagnostics) {
 	var diags diag.Diagnostics
 
@@ -100,21 +104,10 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 		RetryWrites: d.Get("retrywrites").(bool),
 	}
 
-	client, err := clientConfig.MongoClient()
+  	return &MongoDatabaseConfiguration{
+	  Config:          &clientConfig,
+	  MaxConnLifetime: 10,
+  	} , diags
 
-	if err != nil {
-		return nil, diag.Errorf("Error initializing Mongo connection %s", err)
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	err = client.Connect(ctx)
-	if err != nil {
-		return nil, diag.Errorf("Error connecting to Mongo server %s", err)
-	}
-	err = client.Ping(ctx,nil)
-	if err != nil {
-		return nil, diag.Errorf("Error connecting to Mongo server %s", err)
-	}
-	return client,diags
 }
 

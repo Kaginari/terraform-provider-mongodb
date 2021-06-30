@@ -8,7 +8,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/mitchellh/mapstructure"
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
 	"strings"
 )
 
@@ -58,7 +57,11 @@ func resourceDatabaseUser() *schema.Resource {
 
 
 func resourceDatabaseUserDelete(ctx context.Context, data *schema.ResourceData, i interface{}) diag.Diagnostics {
-	var client = i.(*mongo.Client)
+	var config = i.(*MongoDatabaseConfiguration)
+	client , connectionError := MongoClientInit(config)
+	if connectionError != nil {
+		return diag.Errorf("Error connecting to database : %s ", connectionError)
+	}
 	var stateId = data.State().ID
 	var database = data.Get("auth_database").(string)
 
@@ -82,8 +85,11 @@ func resourceDatabaseUserDelete(ctx context.Context, data *schema.ResourceData, 
 }
 
 func resourceDatabaseUserUpdate(ctx context.Context, data *schema.ResourceData, i interface{}) diag.Diagnostics {
-	var client = i.(*mongo.Client)
-
+	var config = i.(*MongoDatabaseConfiguration)
+	client , connectionError := MongoClientInit(config)
+	if connectionError != nil {
+		return diag.Errorf("Error connecting to database : %s ", connectionError)
+	}
 	var stateId = data.State().ID
 	_, errEncoding := base64.StdEncoding.DecodeString(stateId)
 	if errEncoding != nil {
@@ -122,8 +128,11 @@ func resourceDatabaseUserUpdate(ctx context.Context, data *schema.ResourceData, 
 }
 
 func resourceDatabaseUserRead(ctx context.Context, data *schema.ResourceData, i interface{}) diag.Diagnostics {
-	var client = i.(*mongo.Client)
-
+	var config = i.(*MongoDatabaseConfiguration)
+	client , connectionError := MongoClientInit(config)
+	if connectionError != nil {
+		return diag.Errorf("Error connecting to database : %s ", connectionError)
+	}
 	stateID := data.State().ID
 	username, database , err := resourceDatabaseUserParseId(stateID)
 	if err != nil {
@@ -134,7 +143,7 @@ func resourceDatabaseUserRead(ctx context.Context, data *schema.ResourceData, i 
 		return diag.Errorf("Error decoding user : %s ", err)
 	}
 	if len(result.Users) == 0 {
-		return diag.Errorf("user does not exist ")
+		return diag.Errorf("user does not exist")
 	}
 	roles := make([]interface{}, len(result.Users[0].Roles))
 
@@ -161,8 +170,11 @@ func resourceDatabaseUserRead(ctx context.Context, data *schema.ResourceData, i 
 }
 
 func resourceDatabaseUserCreate(ctx context.Context, data *schema.ResourceData, i interface{}) diag.Diagnostics {
-
-	var client = i.(*mongo.Client)
+	var config = i.(*MongoDatabaseConfiguration)
+	client , connectionError := MongoClientInit(config)
+	if connectionError != nil {
+		return diag.Errorf("Error connecting to database : %s ", connectionError)
+	}
 	var database = data.Get("auth_database").(string)
 	var userName = data.Get("name").(string)
 	var userPassword = data.Get("password").(string)
