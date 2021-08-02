@@ -65,6 +65,12 @@ func Provider() *schema.Provider {
 				Default:     false,
 				Description: "ssl activation",
 			},
+			"direct": {
+				Type:        schema.TypeBool,
+				Optional:    true,
+				Default:     false,
+				Description: "enforces a direct connection instead of discovery",
+			},
 			"retrywrites": {
 				Type:        schema.TypeBool,
 				Optional:    true,
@@ -101,6 +107,7 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 		ReplicaSet:      d.Get("replica_set").(string),
 		Certificate:       d.Get("certificate").(string),
 		InsecureSkipVerify: d.Get("insecure_skip_verify").(bool),
+		Direct:  d.Get("direct").(bool),
 		RetryWrites: d.Get("retrywrites").(bool),
 	}
 
