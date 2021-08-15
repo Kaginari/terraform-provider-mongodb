@@ -14,6 +14,7 @@ provider "mongodb" {
   username = ""
   password = ""
   ssl = true
+  direct = true
   certificate = file(pathexpand("rds-combined-ca-bundle.pem"))
 }
 resource "mongodb_db_user" "user" {

@@ -25,6 +25,7 @@ type ClientConfig struct {
 	ReplicaSet string
 	RetryWrites bool
 	Certificate	    string
+	Direct bool
 }
 type DbUser struct {
 	Name     string `json:"name"`
@@ -95,9 +96,15 @@ func (c *ClientConfig) MongoClient() (*mongo.Client, error) {
 	if c.Ssl {
 		arguments = addArgs(arguments,"ssl=true")
 	}
-	if c.ReplicaSet != "" {
+
+	if c.ReplicaSet != "" && c.Direct == false {
 		arguments = addArgs(arguments,"replicaSet="+c.ReplicaSet)
 	}
+
+	if c.Direct {
+		arguments = addArgs(arguments,"connect="+"direct")
+	}
+
 	var uri = "mongodb://" + c.Host + ":" + c.Port + arguments
 
 	/*
@@ -116,7 +123,6 @@ func (c *ClientConfig) MongoClient() (*mongo.Client, error) {
 		if err != nil {
 			return nil, err
 		}
-
 		mongoClient, err := mongo.NewClient(options.Client().ApplyURI(uri).SetAuth(options.Credential{
 			AuthSource: c.DB, Username: c.Username, Password: c.Password,
 		}).SetTLSConfig(tlsConfig))
