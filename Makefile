@@ -7,6 +7,13 @@ default: install
 .PHONY: install lint unit
 
 OS_ARCH=linux_amd64
+#
+# On mac set OS_ARCH to darwin_amd64
+UNAME := $(shell uname -s)
+ifeq ($(UNAME),Darwin)
+	OS_ARCH=darwin_amd64
+endif
+
 HOSTNAME=registry.terraform.io
 NAMESPACE=Kaginari
 NAME=mongodb
