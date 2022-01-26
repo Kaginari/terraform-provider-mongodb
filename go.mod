@@ -1,6 +1,6 @@
 module github.com/Kaginari/terraform-provider-mongodb
 
-go 1.15
+go 1.17
 
 require (
 	github.com/hashicorp/terraform-plugin-sdk/v2 v2.1.0
