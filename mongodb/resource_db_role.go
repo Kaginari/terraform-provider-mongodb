@@ -119,20 +119,20 @@ func resourceDatabaseRoleDelete(ctx context.Context, data *schema.ResourceData, 
 		return diag.Errorf("Error connecting to database : %s ", connectionError)
 	}
 	var stateId = data.State().ID
-	id, errEncoding := base64.StdEncoding.DecodeString(stateId)
-	if errEncoding != nil {
-		return diag.Errorf("ID mismatch %s", errEncoding)
+	roleName, database , err := resourceDatabaseRoleParseId(stateId)
+
+	if err != nil {
+		return diag.Errorf("%s", err)
 	}
 
-	adminDB := client.Database("admin")
-	Users := adminDB.Collection("system.roles")
-	_, err := Users.DeleteOne(ctx, bson.M{"_id": string(id) })
-	if err != nil {
-		return diag.Errorf("%s",err)
+	db := client.Database(database)
+	result := db.RunCommand(context.Background(), bson.D{{Key: "dropRole", Value: roleName}})
+
+	if result.Err() != nil {
+		return diag.Errorf("%s",result.Err())
 	}
 
 	return nil
-
 }
 
 func resourceDatabaseRoleUpdate(ctx context.Context, data *schema.ResourceData, i interface{}) diag.Diagnostics {
