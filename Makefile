@@ -11,7 +11,8 @@ OS_ARCH=linux_amd64
 # On mac set OS_ARCH to darwin_amd64
 UNAME := $(shell uname -s)
 ifeq ($(UNAME),Darwin)
-	OS_ARCH=darwin_amd64
+	HW := $(shell uname -m)
+	OS_ARCH=darwin_$(HW)
 endif
 
 HOSTNAME=registry.terraform.io
