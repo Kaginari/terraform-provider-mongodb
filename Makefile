@@ -8,11 +8,16 @@ default: install
 
 OS_ARCH=linux_amd64
 #
-# On mac set OS_ARCH to darwin_amd64
+# Set correct OS_ARCH on Mac
 UNAME := $(shell uname -s)
 ifeq ($(UNAME),Darwin)
 	HW := $(shell uname -m)
-	OS_ARCH=darwin_$(HW)
+	ifeq ($(HW),arm64)
+		ARCH=$(HW)
+	else
+		ARCH=amd64
+	endif
+	OS_ARCH=darwin_$(ARCH)
 endif
 
 HOSTNAME=registry.terraform.io
