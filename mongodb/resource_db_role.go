@@ -144,16 +144,19 @@ func resourceDatabaseRoleUpdate(ctx context.Context, data *schema.ResourceData, 
 	var role = data.Get("name").(string)
 	var database = data.Get("database").(string)
 	var stateId = data.State().ID
-	id, errEncoding := base64.StdEncoding.DecodeString(stateId)
-	if errEncoding != nil {
-		return diag.Errorf("ID mismatch %s", errEncoding)
-	}
-	adminDB := client.Database("admin")
-	Users := adminDB.Collection("system.roles")
-	_, err := Users.DeleteOne(ctx, bson.M{"_id": string(id) })
+	roleName, database , err := resourceDatabaseRoleParseId(stateId)
+
 	if err != nil {
 		return diag.Errorf("%s",err)
 	}
+
+	db := client.Database(database)
+	result := db.RunCommand(context.Background(), bson.D{{Key: "dropRole", Value: roleName}})
+
+	if result.Err() != nil {
+		return diag.Errorf("%s", result.Err())
+	}
+
 	var roleList []Role
 	var privileges []PrivilegeDto
 
