@@ -142,7 +142,6 @@ func resourceDatabaseRoleUpdate(ctx context.Context, data *schema.ResourceData, 
 		return diag.Errorf("Error connecting to database : %s ", connectionError)
 	}
 	var role = data.Get("name").(string)
-	var database = data.Get("database").(string)
 	var stateId = data.State().ID
 	roleName, database , err := resourceDatabaseRoleParseId(stateId)
 
