@@ -106,3 +106,6 @@ arguments](https://www.terraform.io/docs/configuration/providers.html) (e.g.
 * `direct   ` - (Optional) `default = false ` determine if a direct connection is needed..
 
 
+## SOCKS5 Proxy Support
+
+The mongodb provider supports connecting via a SOCKS5 proxy. It can be configured by setting the `ALL_PROXY` or `all_proxy` environment variable to a value like `socks5://127.0.0.1:10022`.

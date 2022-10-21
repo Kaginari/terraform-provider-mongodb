@@ -6,6 +6,7 @@ require (
 	github.com/hashicorp/terraform-plugin-sdk/v2 v2.1.0
 	github.com/mitchellh/mapstructure v1.1.2
 	go.mongodb.org/mongo-driver v1.7.0
+	golang.org/x/net v0.0.0-20200707034311-ab3426394381
 )
 
 require (
@@ -37,7 +38,6 @@ require (
 	github.com/youmark/pkcs8 v0.0.0-20181117223130-1be2e3e5546d // indirect
 	github.com/zclconf/go-cty v1.2.1 // indirect
 	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9 // indirect
-	golang.org/x/net v0.0.0-20200707034311-ab3426394381 // indirect
 	golang.org/x/sync v0.0.0-20200625203802-6e8e738ad208 // indirect
 	golang.org/x/sys v0.0.0-20200523222454-059865788121 // indirect
 	golang.org/x/text v0.3.5 // indirect

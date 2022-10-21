@@ -9,6 +9,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"golang.org/x/net/proxy"
 	"strconv"
 	"time"
 )
@@ -107,6 +108,8 @@ func (c *ClientConfig) MongoClient() (*mongo.Client, error) {
 
 	var uri = "mongodb://" + c.Host + ":" + c.Port + arguments
 
+	dialer := proxy.FromEnvironment().(options.ContextDialer)
+
 	/*
 		@Since: v0.0.9
 		verify certificate
@@ -125,14 +128,14 @@ func (c *ClientConfig) MongoClient() (*mongo.Client, error) {
 		}
 		mongoClient, err := mongo.NewClient(options.Client().ApplyURI(uri).SetAuth(options.Credential{
 			AuthSource: c.DB, Username: c.Username, Password: c.Password,
-		}).SetTLSConfig(tlsConfig))
+		}).SetTLSConfig(tlsConfig).SetDialer(dialer))
 
 		return mongoClient, err
 	}
 
 	client, err := mongo.NewClient(options.Client().ApplyURI(uri).SetAuth(options.Credential{
 		AuthSource: c.DB, Username: c.Username, Password: c.Password,
-	}))
+	}).SetDialer(dialer))
 	return client, err
 }
 
