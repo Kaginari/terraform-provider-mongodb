@@ -1,0 +1,50 @@
+version: '3.1'
+
+networks:
+  network:
+    driver: bridge
+
+services:
+  mongo:
+    container_name: mongo
+    image: mongo:3.6
+    restart: always
+    environment:
+      - MONGODB_USER:root
+      - MONGODB_PASS:root
+      - MONGODB_DATABASE=admin
+    volumes:
+      - mongo_data:/data/db
+    ports:
+      - 27017:27017
+    networks:
+      - network
+  mongo-express:
+    image: mongo-express
+    container_name: mongo-express
+    ports:
+      - 8081:8081
+    environment:
+      ME_CONFIG_BASICAUTH_USERNAME: root
+      ME_CONFIG_BASICAUTH_PASSWORD: root
+      ME_CONFIG_MONGODB_SERVER: mongo
+      ME_CONFIG_MONGODB_PORT: 27017
+      ME_CONFIG_MONGODB_ADMINUSERNAME: root
+      ME_CONFIG_MONGODB_ADMINPASSWORD: root
+    links:
+      - mongo:mongo
+    networks:
+      - network
+    depends_on:
+      - mongo
+  socks5:
+    image: serjs/go-socks5-proxy
+    container_name: socks
+    ports:
+      - 1080:1080
+    networks:
+      - network
+    depends_on:
+      - mongo
+volumes:
+  mongo_data: {}
