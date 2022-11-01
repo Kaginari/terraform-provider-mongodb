@@ -17,6 +17,7 @@ jobs:
         uses: golangci/golangci-lint-action@v2
         with:
           version: v1.30
+          skip-go-installation: true
 
   go_test:
     name: golang test
