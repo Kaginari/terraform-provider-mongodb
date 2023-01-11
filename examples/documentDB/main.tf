@@ -3,36 +3,37 @@ terraform {
 
   required_providers {
     mongodb = {
-      source = "registry.terraform.io/Kaginari/mongodb"
-      version = "9.9.9"
+      source  = "registry.terraform.io/Kaginari/mongodb"
+      version = "0.1.8"
     }
   }
 }
+
 provider "mongodb" {
-  host = "documentdb-test-terraform.cluster-ro-ctclcdufsrkx.eu-west-3.docdb.amazonaws.com"
-  port = "27017"
-  username = ""
-  password = ""
-  ssl = true
-  direct = true
-  certificate = file(pathexpand("rds-combined-ca-bundle.pem"))
+  host                 = "documentdb-test-terraform.cluster-ro-ctclcdufsrkx.eu-west-3.docdb.amazonaws.com"
+  port                 = "27017"
+  username             = ""
+  password             = ""
+  tls                  = true
+  direct               = true
+  ca_file              = "ca.pem"
+  certificate_key_file = "cert_key.pem"
 }
+
 resource "mongodb_db_user" "user" {
   auth_database = "admin"
-  name = "monta"
-  password = "monta"
+  name          = "monta"
+  password      = "monta"
   role {
     role = "readAnyDatabase"
-    db =   "admin"
+    db   = "admin"
   }
   role {
     role = "readWrite"
-    db =   "local"
+    db   = "local"
   }
   role {
     role = "readWrite"
-    db =   "monta"
+    db   = "monta"
   }
-
-
 }

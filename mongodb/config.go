@@ -2,17 +2,15 @@ package mongodb
 
 import (
 	"context"
-	"crypto/tls"
-	"crypto/x509"
-	"errors"
 	"fmt"
+	"net/url"
+	"strconv"
+	"time"
+
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"golang.org/x/net/proxy"
-	"net/url"
-	"strconv"
-	"time"
 )
 
 type ClientConfig struct {
@@ -21,11 +19,11 @@ type ClientConfig struct {
 	Username           string
 	Password           string
 	DB                 string
-	Ssl                bool
-	InsecureSkipVerify bool
+	TLS                bool
 	ReplicaSet         string
 	RetryWrites        bool
-	Certificate        string
+	CAFile             string
+	CertificateKeyFile string
 	Direct             bool
 	Proxy              string
 }
@@ -93,16 +91,16 @@ func addArgs(arguments string, newArg string) string {
 
 func (c *ClientConfig) MongoClient() (*mongo.Client, error) {
 
-	var verify = false
 	var arguments = ""
+	var uri = "mongodb://" + c.Username + ":" + c.Password + "@" + c.Host + ":" + c.Port
 
 	arguments = addArgs(arguments, "retrywrites="+strconv.FormatBool(c.RetryWrites))
 
-	if c.Ssl {
-		arguments = addArgs(arguments, "ssl=true")
+	if c.TLS {
+		arguments = addArgs(arguments, "tls=true")
 	}
 
-	if c.ReplicaSet != "" && c.Direct == false {
+	if c.ReplicaSet != "" && !c.Direct {
 		arguments = addArgs(arguments, "replicaSet="+c.ReplicaSet)
 	}
 
@@ -110,58 +108,25 @@ func (c *ClientConfig) MongoClient() (*mongo.Client, error) {
 		arguments = addArgs(arguments, "connect="+"direct")
 	}
 
-	var uri = "mongodb://" + c.Host + ":" + c.Port + arguments
+	if c.CAFile != "" && c.CertificateKeyFile != "" {
+		arguments = addArgs(arguments, "tlsCAFile="+c.CAFile)
+		arguments = addArgs(arguments, "tlsCertificateKeyFile="+c.CertificateKeyFile)
+		credential := options.Credential{
+			AuthMechanism: "MONGODB-X509",
+		}
+		options.Client().ApplyURI(uri).SetAuth(credential)
+	}
+
+	uri += arguments
 
 	dialer, dialerErr := proxyDialer(c)
 
 	if dialerErr != nil {
 		return nil, dialerErr
 	}
-	/*
-		@Since: v0.0.9
-		verify certificate
-	*/
-	if c.InsecureSkipVerify {
-		verify = true
-	}
-	/*
-		@Since: v0.0.7
-		add certificate support for documentDB
-	*/
-	if c.Certificate != "" {
-		tlsConfig, err := getTLSConfigWithAllServerCertificates([]byte(c.Certificate), verify)
-		if err != nil {
-			return nil, err
-		}
-		mongoClient, err := mongo.NewClient(options.Client().ApplyURI(uri).SetAuth(options.Credential{
-			AuthSource: c.DB, Username: c.Username, Password: c.Password,
-		}).SetTLSConfig(tlsConfig).SetDialer(dialer))
 
-		return mongoClient, err
-	}
-
-	client, err := mongo.NewClient(options.Client().ApplyURI(uri).SetAuth(options.Credential{
-		AuthSource: c.DB, Username: c.Username, Password: c.Password,
-	}).SetDialer(dialer))
+	client, err := mongo.NewClient(options.Client().ApplyURI(uri).SetDialer(dialer))
 	return client, err
-}
-
-func getTLSConfigWithAllServerCertificates(ca []byte, verify bool) (*tls.Config, error) {
-	/* As of version 1.2.1, the MongoDB Go Driver will only use the first CA server certificate found in sslcertificateauthorityfile.
-	   The code below addresses this limitation by manually appending all server certificates found in sslcertificateauthorityfile
-	   to a custom TLS configuration used during client creation. */
-
-	tlsConfig := new(tls.Config)
-
-	tlsConfig.InsecureSkipVerify = verify
-	tlsConfig.RootCAs = x509.NewCertPool()
-	ok := tlsConfig.RootCAs.AppendCertsFromPEM(ca)
-
-	if !ok {
-		return tlsConfig, errors.New("Failed parsing pem file")
-	}
-
-	return tlsConfig, nil
 }
 
 func (privilege Privilege) String() string {
@@ -194,8 +159,7 @@ func createUser(client *mongo.Client, user DbUser, roles []Role, database string
 }
 
 func getUser(client *mongo.Client, username string, database string) (SingleResultGetUser, error) {
-	var result *mongo.SingleResult
-	result = client.Database(database).RunCommand(context.Background(), bson.D{{Key: "usersInfo", Value: bson.D{
+	var result *mongo.SingleResult = client.Database(database).RunCommand(context.Background(), bson.D{{Key: "usersInfo", Value: bson.D{
 		{Key: "user", Value: username},
 		{Key: "db", Value: database},
 	},
@@ -209,8 +173,7 @@ func getUser(client *mongo.Client, username string, database string) (SingleResu
 }
 
 func getRole(client *mongo.Client, roleName string, database string) (SingleResultGetRole, error) {
-	var result *mongo.SingleResult
-	result = client.Database(database).RunCommand(context.Background(), bson.D{{Key: "rolesInfo", Value: bson.D{
+	var result *mongo.SingleResult = client.Database(database).RunCommand(context.Background(), bson.D{{Key: "rolesInfo", Value: bson.D{
 		{Key: "role", Value: roleName},
 		{Key: "db", Value: database},
 	},
