@@ -27,14 +27,14 @@ make install
 
 ### To test locally 
 
-**1.1: create mongo image  with ssl**
+**1.1: create mongo image  with tls**
 
 
 ````bash
-cd docker/docker-mongo-ssl
+cd docker/docker-mongo-tls
 docker build -t mongo-local .
 ````
-**1.2: create ssl for localhost**
+**1.2: create tls for localhost**
 
 
 *follow the instruction in this link*

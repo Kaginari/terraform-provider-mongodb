@@ -1,8 +1,9 @@
 variable "username" {
   description = "the user name"
-  default = "monta_username"
+  default     = "monta_username"
 }
+
 variable "password" {
   description = "the user password"
-  default = "monta_password"
+  default     = "monta_password"
 }

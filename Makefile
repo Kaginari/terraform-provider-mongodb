@@ -23,7 +23,7 @@ endif
 HOSTNAME=registry.terraform.io
 NAMESPACE=Kaginari
 NAME=mongodb
-VERSION=9.9.9
+VERSION=0.1.8
 ## on linux base os
 TERRAFORM_PLUGINS_DIRECTORY=~/.terraform.d/plugins/${HOSTNAME}/${NAMESPACE}/${NAME}/${VERSION}/${OS_ARCH}
 
