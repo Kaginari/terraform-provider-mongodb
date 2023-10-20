@@ -86,7 +86,7 @@ func resourceDatabaseUserDelete(ctx context.Context, data *schema.ResourceData, 
 
 func resourceDatabaseUserUpdate(ctx context.Context, data *schema.ResourceData, i interface{}) diag.Diagnostics {
 	var config = i.(*MongoDatabaseConfiguration)
-	client , connectionError := MongoClientInit(config)
+	client, connectionError := MongoClientInit(config)
 	if connectionError != nil {
 		return diag.Errorf("Error connecting to database : %s ", connectionError)
 	}
@@ -99,33 +99,32 @@ func resourceDatabaseUserUpdate(ctx context.Context, data *schema.ResourceData, 
 	var userName = data.Get("name").(string)
 	var database = data.Get("auth_database").(string)
 	var userPassword = data.Get("password").(string)
-	
+
 	adminDB := client.Database(database)
 
-	result := adminDB.RunCommand(context.Background(), bson.D{{Key: "dropUser", Value: userName}})
+	// Change the user's password
+	changePasswordCmd := bson.D{
+		{Key: "updateUser", Value: userName},
+		{Key: "pwd", Value: userPassword},
+	}
+	result := adminDB.RunCommand(ctx, changePasswordCmd)
 	if result.Err() != nil {
-		return diag.Errorf("%s",result.Err())
+		return diag.Errorf("Failed to change the user password: %s", result.Err())
 	}
+
 	var roleList []Role
-	var user = DbUser{
-		Name:     userName,
-		Password: userPassword,
-	}
 	roles := data.Get("role").(*schema.Set).List()
 	roleMapErr := mapstructure.Decode(roles, &roleList)
 	if roleMapErr != nil {
 		return diag.Errorf("Error decoding map : %s ", roleMapErr)
 	}
-	err2 := createUser(client,user,roleList,database)
-	if err2 != nil {
-		return diag.Errorf("Could not create the user : %s ", err2)
-	}
 
-	newId := database+"."+userName
+	newId := database + "." + userName
 	encoded := base64.StdEncoding.EncodeToString([]byte(newId))
 	data.SetId(encoded)
 	return resourceDatabaseUserRead(ctx, data, i)
 }
+
 
 func resourceDatabaseUserRead(ctx context.Context, data *schema.ResourceData, i interface{}) diag.Diagnostics {
 	var config = i.(*MongoDatabaseConfiguration)
