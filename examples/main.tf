@@ -10,13 +10,13 @@ terraform {
 }
 
 provider "mongodb" {
-  host = "mongo"
+  host = "localhost"
   port = "27017"
   username = "root"
   password = "root"
   ssl = false
   auth_database = "admin"
-  proxy = "socks5://localhost:1080"
+  #proxy = "socks5://localhost:1080"
 }
 
 variable "username" {
@@ -84,6 +84,15 @@ resource "mongodb_db_user" "user" {
     role = "readWrite"
     db =   "monta"
   }
+}
 
+resource "mongodb_db_collection" "collection_exemple_1" {
+  db = "exemple"
+  name = "collection_1"
+  deletion_protection = false
+}
 
+resource "mongodb_db_collection" "collection_exemple_2" {
+  db = "exemple"
+  name = "collection_2"
 }
