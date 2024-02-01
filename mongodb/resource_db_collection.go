@@ -55,6 +55,7 @@ func resourceDatabaseCollectionDelete(ctx context.Context, data *schema.Resource
 	}
 
 	// StateID is a concatenation of database and collection name. We only use the collection here.
+	// TODO: use resourceDatabaseCollectionParseId
 	splitId := strings.Split(string(id), ".")
 	collectionName := splitId[1]
 
@@ -92,6 +93,7 @@ func resourceDatabaseCollectionUpdate(ctx context.Context, data *schema.Resource
 		return diag.Errorf("%s", _err)
 	}
 
+	// TODO: move id generation to a function
 	newId := db + "." + collectionName
 	encoded := base64.StdEncoding.EncodeToString([]byte(newId))
 	data.SetId(encoded)
@@ -155,6 +157,7 @@ func resourceDatabaseCollectionCreate(ctx context.Context, data *schema.Resource
 		return diag.Errorf("Could not create the collection : %s ", err)
 	}
 
+	// TODO: move id generation to a function
 	str := db + "." + collectionName
 	encoded := base64.StdEncoding.EncodeToString([]byte(str))
 	data.SetId(encoded)

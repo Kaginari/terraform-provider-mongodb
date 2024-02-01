@@ -96,3 +96,11 @@ resource "mongodb_db_collection" "collection_exemple_2" {
   db = "exemple"
   name = "collection_2"
 }
+
+resource "mongodb_db_index" "index_exemple_1" {
+  db = "exemple"
+  collection = "collection_1"
+  keys = {
+    field_name_to_index="-1"
+  }
+}
