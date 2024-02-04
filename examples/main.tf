@@ -97,16 +97,17 @@ resource "mongodb_db_collection" "collection_exemple_2" {
   name = "collection_2"
 }
 
-# resource "mongodb_db_collection" "collection_exemple_3" {
-#   db = "exemple"
-#   deletion_protection = false
-#   name = "collection_3"
-# }
+ resource "mongodb_db_collection" "collection_exemple_3" {
+   db = "exemple"
+   deletion_protection = false
+   name = "collection_3"
+ }
 
 resource "mongodb_db_index" "index_exemple_1" {
   db = "exemple"
-  collection = "collection_1"
+  collection = "collection_2"
   keys = {
-    field_name_to_index="-1"
+    field_name_to_index="1"
+    field_name2_to_index="-1"
   }
 }

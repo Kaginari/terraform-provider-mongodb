@@ -37,54 +37,26 @@ func resourceDatabaseCollection() *schema.Resource {
 	}
 }
 
-func resourceDatabaseCollectionDelete(ctx context.Context, data *schema.ResourceData, i interface{}) diag.Diagnostics {
+func resourceDatabaseCollectionCreate(ctx context.Context, data *schema.ResourceData, i interface{}) diag.Diagnostics {
 	var config = i.(*MongoDatabaseConfiguration)
 	client, connectionError := MongoClientInit(config)
 	if connectionError != nil {
-		return diag.Errorf("Error connecting to database : %s ", connectionError)
+		return diag.Errorf("Error connecting to db : %s ", connectionError)
 	}
-	var stateId = data.State().ID
 	var db = data.Get("db").(string)
-
-	// StateID is a concatenation of database and collection name. We only use the collection here.
-	_, collectionName, err :=resourceDatabaseCollectionParseId(stateId)
-	if err != nil {
-		return diag.Errorf("ID mismatch %s", err)
-	}
-
-	_err := dropCollection(client, db, collectionName, data)
-	if _err != nil {
-		return _err
-	}
-
-	return nil
-}
-
-func resourceDatabaseCollectionUpdate(ctx context.Context, data *schema.ResourceData, i interface{}) diag.Diagnostics {
-	var config = i.(*MongoDatabaseConfiguration)
-	client, connectionError := MongoClientInit(config)
-	if connectionError != nil {
-		return diag.Errorf("Error connecting to database : %s ", connectionError)
-	}
-
-	var stateId = data.State().ID
-	_ , errEncoding := ParseId(stateId, 2)
-	if errEncoding != nil {
-		return diag.Errorf("ID mismatch %s", errEncoding)
-	}
-
 	var collectionName = data.Get("name").(string)
-	var db = data.Get("db").(string)
 
 	dbClient := client.Database(db)
-	_err := dbClient.CreateCollection(context.Background(), collectionName + "bla")
-	if _err != nil {
-		return diag.Errorf("%s", _err)
+
+	err := dbClient.CreateCollection(context.Background(), collectionName)
+	if err != nil {
+		return diag.Errorf("Could not create the collection : %s ", err)
 	}
 
 	SetId(data, []string{db, collectionName})
 	return resourceDatabaseCollectionRead(ctx, data, i)
 }
+
 
 func resourceDatabaseCollectionRead(ctx context.Context, data *schema.ResourceData, i interface{}) diag.Diagnostics {
 	var config = i.(*MongoDatabaseConfiguration)
@@ -92,8 +64,8 @@ func resourceDatabaseCollectionRead(ctx context.Context, data *schema.ResourceDa
 	if connectionError != nil {
 		return diag.Errorf("Error connecting to database : %s ", connectionError)
 	}
-	stateID := data.State().ID
-	db, collectionName, err := resourceDatabaseCollectionParseId(stateID)
+
+	db, collectionName, err := resourceDatabaseCollectionParseId(data.State().ID)
 	if err != nil {
 		return diag.Errorf("%s", err)
 	}
@@ -115,41 +87,39 @@ func resourceDatabaseCollectionRead(ctx context.Context, data *schema.ResourceDa
 		return diag.Errorf("collection does not exist")
 	}
 
-	dataSetError := data.Set("db", db)
-	if dataSetError != nil {
-		return diag.Errorf("error setting database : %s ", dataSetError)
-	}
-	dataSetError = data.Set("name", collectionName)
-	if dataSetError != nil {
-		return diag.Errorf("error setting collection name : %s ", dataSetError)
-	}
-	data.SetId(stateID)
+	_ = data.Set("db", db)
+	_ = data.Set("name", collectionName)
+	_ = data.Set("deletion_protection", data.Get("deletion_protection").(bool))
 	return nil
 }
 
-func resourceDatabaseCollectionCreate(ctx context.Context, data *schema.ResourceData, i interface{}) diag.Diagnostics {
-	var config = i.(*MongoDatabaseConfiguration)
-	client, connectionError := MongoClientInit(config)
-	if connectionError != nil {
-		return diag.Errorf("Error connecting to db : %s ", connectionError)
-	}
-	var db = data.Get("db").(string)
-	var collectionName = data.Get("name").(string)
-
-	dbClient := client.Database(db)
-
-	err := dbClient.CreateCollection(context.Background(), collectionName)
-	if err != nil {
-		return diag.Errorf("Could not create the collection : %s ", err)
-	}
-
-	SetId(data, []string{db, collectionName})
+func resourceDatabaseCollectionUpdate(ctx context.Context, data *schema.ResourceData, i interface{}) diag.Diagnostics {
 	return resourceDatabaseCollectionRead(ctx, data, i)
 }
 
+func resourceDatabaseCollectionDelete(ctx context.Context, data *schema.ResourceData, i interface{}) diag.Diagnostics {
+	var config = i.(*MongoDatabaseConfiguration)
+	client, connectionError := MongoClientInit(config)
+	if connectionError != nil {
+		return diag.Errorf("Error connecting to database : %s ", connectionError)
+	}
+
+	// StateID is a concatenation of database and collection name. We only use the collection here.
+	db, collectionName, err :=resourceDatabaseCollectionParseId(data.State().ID)
+	if err != nil {
+		return diag.Errorf("ID mismatch %s", err)
+	}
+
+	_err := dropCollection(client, db, collectionName, data)
+	if _err != nil {
+		return _err
+	}
+
+	return nil
+}
+
 func dropCollection(client *mongo.Client, db string, collectionName string, data *schema.ResourceData) diag.Diagnostics {
-	var deletionProtection = data.Get("deletion_protection").(bool)
-	if deletionProtection == true {
+	if data.Get("deletion_protection").(bool) {
 		return diag.Errorf("Can't delete collection because deletion protection is enabled")
 	}
 

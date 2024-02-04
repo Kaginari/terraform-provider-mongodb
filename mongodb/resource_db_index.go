@@ -2,13 +2,14 @@ package mongodb
 
 import (
 	"context"
-	"encoding/base64"
+	"fmt"
+	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
-	"log"
 	"time"
 )
 
@@ -33,7 +34,7 @@ func resourceDatabaseIndex() *schema.Resource {
 				ForceNew: true,
 			},
 			"keys": {
-				Type: schema.TypeMap,
+				Type:     schema.TypeMap,
 				Required: true,
 				ForceNew: true,
 				Elem: &schema.Schema{
@@ -42,6 +43,7 @@ func resourceDatabaseIndex() *schema.Resource {
 			},
 			"name": {
 				Type:     schema.TypeString,
+				ForceNew: true,
 				Optional: true,
 				Default:  "",
 				DiffSuppressFunc: func(k, old, new string, d *schema.ResourceData) bool {
@@ -51,31 +53,31 @@ func resourceDatabaseIndex() *schema.Resource {
 					return false
 				},
 			},
-			"unique": {
-				Type:     schema.TypeBool,
-				Optional: true,
-				Default:  false,
-			},
-			"sparse": {
-				Type:     schema.TypeBool,
-				Optional: true,
-				Default:  false,
-			},
-			"bits": {
-				Type:     schema.TypeInt,
-				Optional: true,
-				Default:  26,
-			},
-			"max": {
-				Type:     schema.TypeFloat,
-				Optional: true,
-				Default:  180.0,
-			},
-			"min": {
-				Type:     schema.TypeFloat,
-				Optional: true,
-				Default:  -180.0,
-			},
+			//"unique": {
+			//	Type:     schema.TypeBool,
+			//	Optional: true,
+			//	Default:  false,
+			//},
+			//"sparse": {
+			//	Type:     schema.TypeBool,
+			//	Optional: true,
+			//	Default:  false,
+			//},
+			//"bits": {
+			//	Type:     schema.TypeInt,
+			//	Optional: true,
+			//	Default:  26,
+			//},
+			//"max": {
+			//	Type:     schema.TypeFloat,
+			//	Optional: true,
+			//	Default:  180.0,
+			//},
+			//"min": {
+			//	Type:     schema.TypeFloat,
+			//	Optional: true,
+			//	Default:  -180.0,
+			//},
 			"timeout": {
 				Type:     schema.TypeInt,
 				Optional: true,
@@ -85,57 +87,16 @@ func resourceDatabaseIndex() *schema.Resource {
 	}
 }
 
-func resourceDatabaseIndexDelete(ctx context.Context, data *schema.ResourceData, i interface{}) diag.Diagnostics {
+func resourceDatabaseIndexCreate(ctx context.Context, data *schema.ResourceData, i interface{}) diag.Diagnostics {
 	var config = i.(*MongoDatabaseConfiguration)
 	client, connectionError := MongoClientInit(config)
 	if connectionError != nil {
-		return diag.Errorf("Error connecting to database : %s ", connectionError)
+		return diag.Errorf("Error connecting to db : %s ", connectionError)
 	}
-	var stateId = data.State().ID
 	var db = data.Get("db").(string)
-
-	// StateID is a concatenation of database and collection name. We only use the collection & index here.
-	_, collectionName, indexName, err := resourceDatabaseIndexParseId(stateId)
-	if err != nil {
-		return diag.Errorf("Failed to parse index ID %s", err)
-	}
-
-	_err := dropIndex(client, db, collectionName, indexName)
-	if _err != nil {
-		return _err
-	}
-
-	return nil
-}
-
-func resourceDatabaseIndexUpdate(ctx context.Context, data *schema.ResourceData, i interface{}) diag.Diagnostics {
-	var config = i.(*MongoDatabaseConfiguration)
-	client, connectionError := MongoClientInit(config)
-	if connectionError != nil {
-		return diag.Errorf("Error connecting to database : %s ", connectionError)
-	}
-	var stateId = data.State().ID
-	_, errEncoding := base64.StdEncoding.DecodeString(stateId)
-	if errEncoding != nil {
-		return diag.Errorf("ID mismatch %s", errEncoding)
-	}
-
-	var indexName = data.Get("name").(string)
 	var collectionName = data.Get("collection").(string)
-	var db = data.Get("db").(string)
 
-	currentIndexName := indexName
-	if data.HasChange("name") {
-		oldIndexName, _ := data.GetChange("name")
-		currentIndexName = oldIndexName.(string)
-
-	}
-	err := dropIndex(client, db, collectionName, currentIndexName)
-	if err != nil {
-		return err
-	}
-
-	indexName, err = createIndex(client, db, collectionName, data)
+	indexName, err := createIndex(client, db, collectionName, data)
 	if err != nil {
 		return err
 	}
@@ -170,13 +131,21 @@ func resourceDatabaseIndexRead(ctx context.Context, data *schema.ResourceData, i
 
 	var results []bson.M
 	if err = indexes.All(context.Background(), &results); err != nil {
-		log.Fatal(err)
+		{
+			return diag.Errorf("Failed to list indexes: %s", err)
+		}
 	}
 
 	indexFound := false
+	keys := make(map[string]string)
 	for _, result := range results {
+		tflog.Debug(ctx, fmt.Sprintf("Index: %v", result))
 		for k, v := range result {
 			if k == "name" && v == indexName {
+				keysPrimitives := result["key"].(primitive.M)
+				for key, value := range keysPrimitives {
+					keys[key] = fmt.Sprintf("%v", value)
+				}
 				indexFound = true
 				break
 			}
@@ -187,38 +156,38 @@ func resourceDatabaseIndexRead(ctx context.Context, data *schema.ResourceData, i
 		return diag.Errorf("index does not exist")
 	}
 
-	dataSetError := data.Set("db", db)
-	if dataSetError != nil {
-		return diag.Errorf("error setting database : %s ", dataSetError)
-	}
-	dataSetError = data.Set("collection", collectionName)
-	if dataSetError != nil {
-		return diag.Errorf("error setting collection name : %s ", dataSetError)
-	}
-	dataSetError = data.Set("name", indexName)
-	if dataSetError != nil {
-		return diag.Errorf("error setting index name : %s ", dataSetError)
-	}
-	data.SetId(stateID)
+	_ = data.Set("db", db)
+	_ = data.Set("collection", collectionName)
+	_ = data.Set("name", indexName)
+	_ = data.Set("keys", keys)
+	_ = data.Set("timeout", data.Get("timeout").(int))
+
 	return nil
 }
 
-func resourceDatabaseIndexCreate(ctx context.Context, data *schema.ResourceData, i interface{}) diag.Diagnostics {
+func resourceDatabaseIndexUpdate(ctx context.Context, data *schema.ResourceData, i interface{}) diag.Diagnostics {
+	return resourceDatabaseIndexRead(ctx, data, i)
+}
+
+func resourceDatabaseIndexDelete(ctx context.Context, data *schema.ResourceData, i interface{}) diag.Diagnostics {
 	var config = i.(*MongoDatabaseConfiguration)
 	client, connectionError := MongoClientInit(config)
 	if connectionError != nil {
-		return diag.Errorf("Error connecting to db : %s ", connectionError)
+		return diag.Errorf("Error connecting to database : %s ", connectionError)
 	}
-	var db = data.Get("db").(string)
-	var collectionName = data.Get("collection").(string)
 
-	indexName, err := createIndex(client, db, collectionName, data)
+	// StateID is a concatenation of database and collection name. We only use the collection & index here.
+	db, collectionName, indexName, err := resourceDatabaseIndexParseId(data.State().ID)
 	if err != nil {
-		return err
+		return diag.Errorf("Failed to parse index ID %s", err)
 	}
 
-	SetId(data, []string{db, collectionName, indexName})
-	return resourceDatabaseIndexRead(ctx, data, i)
+	_err := dropIndex(client, db, collectionName, indexName)
+	if _err != nil {
+		return _err
+	}
+
+	return nil
 }
 
 func createIndex(client *mongo.Client, db string, collectionName string, data *schema.ResourceData) (string, diag.Diagnostics) {
@@ -241,11 +210,11 @@ func createIndex(client *mongo.Client, db string, collectionName string, data *s
 
 	// Initialize options.Index
 	indexOptions := options.Index()
-	indexOptions.SetUnique(data.Get("unique").(bool))
-	indexOptions.SetSparse(data.Get("sparse").(bool))
-	indexOptions.SetBits(int32(data.Get("bits").(int)))
-	indexOptions.SetMin(data.Get("min").(float64))
-	indexOptions.SetMax(data.Get("max").(float64))
+	//indexOptions.SetUnique(data.Get("unique").(bool))
+	//indexOptions.SetSparse(data.Get("sparse").(bool))
+	//indexOptions.SetBits(int32(data.Get("bits").(int)))
+	//indexOptions.SetMin(data.Get("min").(float64))
+	//indexOptions.SetMax(data.Get("max").(float64))
 	var name = data.Get("name").(string)
 	if len(name) > 0 {
 		indexOptions.SetName(name)

@@ -49,14 +49,7 @@ func ParseId(id string, expectedParts int) ([]string, error) {
 }
 
 func SetId(data *schema.ResourceData, parts []string) {
-	var id string
-	for _, part := range parts {
-		if len(id) == 0 {
-			id = part
-		} else {
-			id += "." + part
-		}
-	}
+	id := strings.Join(parts, ".")
 	encoded := base64.StdEncoding.EncodeToString([]byte(id))
 	data.SetId(encoded)
 }
