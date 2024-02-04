@@ -2,13 +2,10 @@ package mongodb
 
 import (
 	"context"
-	"encoding/base64"
-	"fmt"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
-	"strings"
 )
 
 func resourceDatabaseCollection() *schema.Resource {
@@ -32,9 +29,9 @@ func resourceDatabaseCollection() *schema.Resource {
 				ForceNew: true,
 			},
 			"deletion_protection": {
-				Type:    schema.TypeBool,
+				Type:     schema.TypeBool,
 				Optional: true,
-				Default: true,
+				Default:  true,
 			},
 		},
 	}
@@ -49,19 +46,15 @@ func resourceDatabaseCollectionDelete(ctx context.Context, data *schema.Resource
 	var stateId = data.State().ID
 	var db = data.Get("db").(string)
 
-	id, errEncoding := base64.StdEncoding.DecodeString(stateId)
-	if errEncoding != nil {
-		return diag.Errorf("ID mismatch %s", errEncoding)
+	// StateID is a concatenation of database and collection name. We only use the collection here.
+	_, collectionName, err :=resourceDatabaseCollectionParseId(stateId)
+	if err != nil {
+		return diag.Errorf("ID mismatch %s", err)
 	}
 
-	// StateID is a concatenation of database and collection name. We only use the collection here.
-	// TODO: use resourceDatabaseCollectionParseId
-	splitId := strings.Split(string(id), ".")
-	collectionName := splitId[1]
-
-	err := dropCollection(client, db, collectionName, data)
-	if err != nil {
-		return err
+	_err := dropCollection(client, db, collectionName, data)
+	if _err != nil {
+		return _err
 	}
 
 	return nil
@@ -73,8 +66,9 @@ func resourceDatabaseCollectionUpdate(ctx context.Context, data *schema.Resource
 	if connectionError != nil {
 		return diag.Errorf("Error connecting to database : %s ", connectionError)
 	}
+
 	var stateId = data.State().ID
-	_, errEncoding := base64.StdEncoding.DecodeString(stateId)
+	_ , errEncoding := ParseId(stateId, 2)
 	if errEncoding != nil {
 		return diag.Errorf("ID mismatch %s", errEncoding)
 	}
@@ -82,21 +76,13 @@ func resourceDatabaseCollectionUpdate(ctx context.Context, data *schema.Resource
 	var collectionName = data.Get("name").(string)
 	var db = data.Get("db").(string)
 
-	err := dropCollection(client, db, collectionName, data)
-	if err != nil {
-		return err
-	}
-
 	dbClient := client.Database(db)
-	_err := dbClient.CreateCollection(context.Background(), collectionName)
+	_err := dbClient.CreateCollection(context.Background(), collectionName + "bla")
 	if _err != nil {
 		return diag.Errorf("%s", _err)
 	}
 
-	// TODO: move id generation to a function
-	newId := db + "." + collectionName
-	encoded := base64.StdEncoding.EncodeToString([]byte(newId))
-	data.SetId(encoded)
+	SetId(data, []string{db, collectionName})
 	return resourceDatabaseCollectionRead(ctx, data, i)
 }
 
@@ -157,16 +143,13 @@ func resourceDatabaseCollectionCreate(ctx context.Context, data *schema.Resource
 		return diag.Errorf("Could not create the collection : %s ", err)
 	}
 
-	// TODO: move id generation to a function
-	str := db + "." + collectionName
-	encoded := base64.StdEncoding.EncodeToString([]byte(str))
-	data.SetId(encoded)
+	SetId(data, []string{db, collectionName})
 	return resourceDatabaseCollectionRead(ctx, data, i)
 }
 
 func dropCollection(client *mongo.Client, db string, collectionName string, data *schema.ResourceData) diag.Diagnostics {
 	var deletionProtection = data.Get("deletion_protection").(bool)
-	if deletionProtection == true{
+	if deletionProtection == true {
 		return diag.Errorf("Can't delete collection because deletion protection is enabled")
 	}
 
@@ -181,18 +164,12 @@ func dropCollection(client *mongo.Client, db string, collectionName string, data
 }
 
 func resourceDatabaseCollectionParseId(id string) (string, string, error) {
-	result, errEncoding := base64.StdEncoding.DecodeString(id)
-
-	if errEncoding != nil {
-		return "", "", fmt.Errorf("unexpected format of ID Error : %s", errEncoding)
-	}
-	parts := strings.SplitN(string(result), ".", 2)
-	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
-		return "", "", fmt.Errorf("unexpected format of ID (%s), expected attribute1.attribute2", id)
+	parts, err := ParseId(id, 2)
+	if err != nil {
+		return "", "", err
 	}
 
 	db := parts[0]
 	collectionName := parts[1]
-
 	return db, collectionName, nil
 }

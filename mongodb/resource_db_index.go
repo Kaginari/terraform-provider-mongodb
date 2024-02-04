@@ -3,14 +3,12 @@ package mongodb
 import (
 	"context"
 	"encoding/base64"
-	"fmt"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"log"
-	"strings"
 	"time"
 )
 
@@ -46,6 +44,12 @@ func resourceDatabaseIndex() *schema.Resource {
 				Type:     schema.TypeString,
 				Optional: true,
 				Default:  "",
+				DiffSuppressFunc: func(k, old, new string, d *schema.ResourceData) bool {
+					if len(old) > 0 && len(new) == 0 {
+						return true
+					}
+					return false
+				},
 			},
 			"unique": {
 				Type:     schema.TypeBool,
@@ -120,7 +124,13 @@ func resourceDatabaseIndexUpdate(ctx context.Context, data *schema.ResourceData,
 	var collectionName = data.Get("collection").(string)
 	var db = data.Get("db").(string)
 
-	err := dropIndex(client, db, collectionName, indexName)
+	currentIndexName := indexName
+	if data.HasChange("name") {
+		oldIndexName, _ := data.GetChange("name")
+		currentIndexName = oldIndexName.(string)
+
+	}
+	err := dropIndex(client, db, collectionName, currentIndexName)
 	if err != nil {
 		return err
 	}
@@ -130,7 +140,7 @@ func resourceDatabaseIndexUpdate(ctx context.Context, data *schema.ResourceData,
 		return err
 	}
 
-	setId(data, db, collectionName, indexName)
+	SetId(data, []string{db, collectionName, indexName})
 	return resourceDatabaseIndexRead(ctx, data, i)
 }
 
@@ -177,29 +187,6 @@ func resourceDatabaseIndexRead(ctx context.Context, data *schema.ResourceData, i
 		return diag.Errorf("index does not exist")
 	}
 
-	//if len(results) > 0 {
-	//	return diag.Errorf("INDEX NAME: %+v\n", results)
-	//}
-
-	// Find the index with the specified name
-	//var index *mongo.IndexModel
-	//for indexes.Next(context.Background()) {
-	//	var currentIndex mongo.IndexModel
-	//	err := indexes.Decode(&currentIndex)
-	//	if err != nil {
-	//		return diag.Errorf("Failed to decode index model: %s", err)
-	//	}
-	//
-	//	if currentIndex.Options != nil && currentIndex.Options.Name != nil && *currentIndex.Options.Name == indexName {
-	//		index = &currentIndex
-	//		break
-	//	}
-	//}
-	//
-	//if index == nil {
-	//	return diag.Errorf("index does not exist")
-	//}
-
 	dataSetError := data.Set("db", db)
 	if dataSetError != nil {
 		return diag.Errorf("error setting database : %s ", dataSetError)
@@ -230,7 +217,7 @@ func resourceDatabaseIndexCreate(ctx context.Context, data *schema.ResourceData,
 		return err
 	}
 
-	setId(data, db, collectionName, indexName)
+	SetId(data, []string{db, collectionName, indexName})
 	return resourceDatabaseIndexRead(ctx, data, i)
 }
 
@@ -281,12 +268,6 @@ func createIndex(client *mongo.Client, db string, collectionName string, data *s
 	return indexName, nil
 }
 
-func setId(data *schema.ResourceData, db string, collectionName string, indexName string) {
-	id := db + "." + collectionName + "." + indexName
-	encoded := base64.StdEncoding.EncodeToString([]byte(id))
-	data.SetId(encoded)
-}
-
 func dropIndex(client *mongo.Client, db string, collectionName string, indexName string) diag.Diagnostics {
 	dbClient := client.Database(db)
 	collectionClient := dbClient.Collection(collectionName)
@@ -299,14 +280,9 @@ func dropIndex(client *mongo.Client, db string, collectionName string, indexName
 }
 
 func resourceDatabaseIndexParseId(id string) (string, string, string, error) {
-	result, errEncoding := base64.StdEncoding.DecodeString(id)
-
-	if errEncoding != nil {
-		return "", "", "", fmt.Errorf("unexpected format of ID Error : %s", errEncoding)
-	}
-	parts := strings.SplitN(string(result), ".", 3)
-	if len(parts) != 3 || parts[0] == "" || parts[1] == "" || parts[2] == "" {
-		return "", "", "", fmt.Errorf("unexpected format of ID (%s), expected attribute1.attribute2.attribute3", id)
+	parts, err := ParseId(id, 3)
+	if err != nil {
+		return "", "", "", err
 	}
 
 	db := parts[0]
