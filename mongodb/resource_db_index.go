@@ -149,6 +149,9 @@ func resourceDatabaseIndexRead(ctx context.Context, data *schema.ResourceData, i
 				indexFound = true
 				break
 			}
+			if indexFound {
+				break
+			}
 		}
 	}
 

@@ -34,11 +34,6 @@ type DbUser struct {
 	Password string `json:"password"`
 }
 
-type DbCollection struct {
-	Db   string `json:"db"`
-	Name string `json:"name"`
-}
-
 type Role struct {
 	Role string `json:"role"`
 	Db   string `json:"db"`

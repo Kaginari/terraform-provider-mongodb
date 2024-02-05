@@ -57,7 +57,6 @@ func resourceDatabaseCollectionCreate(ctx context.Context, data *schema.Resource
 	return resourceDatabaseCollectionRead(ctx, data, i)
 }
 
-
 func resourceDatabaseCollectionRead(ctx context.Context, data *schema.ResourceData, i interface{}) diag.Diagnostics {
 	var config = i.(*MongoDatabaseConfiguration)
 	client, connectionError := MongoClientInit(config)
@@ -104,8 +103,7 @@ func resourceDatabaseCollectionDelete(ctx context.Context, data *schema.Resource
 		return diag.Errorf("Error connecting to database : %s ", connectionError)
 	}
 
-	// StateID is a concatenation of database and collection name. We only use the collection here.
-	db, collectionName, err :=resourceDatabaseCollectionParseId(data.State().ID)
+	db, collectionName, err := resourceDatabaseCollectionParseId(data.State().ID)
 	if err != nil {
 		return diag.Errorf("ID mismatch %s", err)
 	}
