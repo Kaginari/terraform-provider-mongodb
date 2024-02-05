@@ -14,7 +14,6 @@ resource "mongodb_db_collection" "collection_1" {
 }
 ```
 
-```
 ## Argument Reference
 * `db`   - (Required) Database in which the colleciton will be created
 * `name` - (Required) Collection name

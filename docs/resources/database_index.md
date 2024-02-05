@@ -20,7 +20,6 @@ resource "mongodb_db_index" "collection_1" {
 }
 ```
 
-```
 ## Argument Reference
 * `db` - (Required) Database in which the target colleciton resides
 * `collection` - (Required) Collection name
