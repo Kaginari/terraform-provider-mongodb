@@ -1,10 +1,12 @@
 package mongodb
 
 import (
+	"encoding/base64"
 	"fmt"
 	"github.com/hashicorp/go-cty/cty"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"strings"
 )
 
 func validateDiagFunc(validateFunc func(interface{}, string) ([]string, []error)) schema.SchemaValidateDiagFunc {
@@ -25,4 +27,29 @@ func validateDiagFunc(validateFunc func(interface{}, string) ([]string, []error)
 		}
 		return diags
 	}
+}
+
+func ParseId(id string, expectedParts int) ([]string, error) {
+	result, errEncoding := base64.StdEncoding.DecodeString(id)
+	if errEncoding != nil {
+		return nil, fmt.Errorf("unexpected format of ID Error : %s", errEncoding)
+	}
+	parts := strings.SplitN(string(result), ".", expectedParts)
+	if len(parts) != expectedParts {
+		return nil, fmt.Errorf("unexpected format of ID (%s), expected attribute1.attributeN", id)
+	}
+
+	for _, part := range parts {
+		if part == "" {
+			return nil, fmt.Errorf("invalid ID format: %s", result)
+		}
+	}
+
+	return parts, nil
+}
+
+func SetId(data *schema.ResourceData, parts []string) {
+	id := strings.Join(parts, ".")
+	encoded := base64.StdEncoding.EncodeToString([]byte(id))
+	data.SetId(encoded)
 }

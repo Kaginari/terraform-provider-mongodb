@@ -21,7 +21,7 @@ ifeq ($(UNAME),Darwin)
 endif
 
 HOSTNAME=registry.terraform.io
-NAMESPACE=Kaginari
+NAMESPACE=FelGel
 NAME=mongodb
 VERSION=9.9.9
 ## on linux base os
@@ -35,6 +35,7 @@ install:
 	cd examples && make init
 re-install:
 	rm -f ${TERRAFORM_PLUGINS_DIRECTORY}/terraform-provider-${NAME}
+	rm examples/.terraform.lock.hcl
 	go build -o ${TERRAFORM_PLUGINS_DIRECTORY}/terraform-provider-${NAME}
 	cd examples && rm -rf .terraform
 	cd examples && make init
@@ -54,7 +55,7 @@ documentdb-test-apply:
 	cd examples && rm -rf .terraform
 	cd examples/documentDB && rm -rf .terraform && make init && make apply
 
-documentdb-test-apply:
+documentdb-test-destroy:
 	rm -f ${TERRAFORM_PLUGINS_DIRECTORY}/terraform-provider-${NAME}
 	go build -o ${TERRAFORM_PLUGINS_DIRECTORY}/terraform-provider-${NAME}
 	cd examples && rm -rf .terraform

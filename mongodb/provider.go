@@ -90,8 +90,10 @@ func Provider() *schema.Provider {
 			},
 		},
 		ResourcesMap: map[string]*schema.Resource{
-			"mongodb_db_user": resourceDatabaseUser(),
-			"mongodb_db_role": resourceDatabaseRole(),
+			"mongodb_db_user":       resourceDatabaseUser(),
+			"mongodb_db_role":       resourceDatabaseRole(),
+			"mongodb_db_collection": resourceDatabaseCollection(),
+			"mongodb_db_index":      resourceDatabaseIndex(),
 		},
 		DataSourcesMap:       map[string]*schema.Resource{},
 		ConfigureContextFunc: providerConfigure,
@@ -125,5 +127,4 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 		Config:          &clientConfig,
 		MaxConnLifetime: 10,
 	}, diags
-
 }

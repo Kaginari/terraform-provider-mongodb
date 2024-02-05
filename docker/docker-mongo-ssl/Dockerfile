@@ -1,4 +1,4 @@
-FROM mongo:3.6.2-jessie
+FROM mongo:6.0.12
 
 COPY scripts /home/mongodb/scripts
 
