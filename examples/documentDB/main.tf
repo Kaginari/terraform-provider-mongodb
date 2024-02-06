@@ -13,7 +13,7 @@ provider "mongodb" {
   port = "27017"
   username = ""
   password = ""
-  ssl = true
+  tls = true
   direct = true
   certificate = file(pathexpand("rds-combined-ca-bundle.pem"))
 }

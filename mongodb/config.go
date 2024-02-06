@@ -16,12 +16,13 @@ import (
 )
 
 type ClientConfig struct {
+	ConnectionString   string
 	Host               string
 	Port               string
 	Username           string
 	Password           string
 	DB                 string
-	Ssl                bool
+	Tls                bool
 	InsecureSkipVerify bool
 	ReplicaSet         string
 	RetryWrites        bool
@@ -98,8 +99,13 @@ func (c *ClientConfig) MongoClient() (*mongo.Client, error) {
 
 	arguments = addArgs(arguments, "retrywrites="+strconv.FormatBool(c.RetryWrites))
 
-	if c.Ssl {
-		arguments = addArgs(arguments, "ssl=true")
+	if c.Tls {
+		arguments = addArgs(arguments, "tls=true")
+	}
+
+	if c.InsecureSkipVerify {
+		verify = true
+		arguments = addArgs(arguments, "tlsAllowInvalidCertificates=true")
 	}
 
 	if c.ReplicaSet != "" && c.Direct == false {
@@ -110,43 +116,39 @@ func (c *ClientConfig) MongoClient() (*mongo.Client, error) {
 		arguments = addArgs(arguments, "connect="+"direct")
 	}
 
-	var uri = "mongodb://" + c.Host + ":" + c.Port + arguments
+	// Use connection string if given otherwise fallback to Host & Port
+	uri := c.ConnectionString
+	if len(uri) == 0 {
+		uri = "mongodb://" + c.Host + ":" + c.Port
+	}
+	uri += arguments
 
 	dialer, dialerErr := proxyDialer(c)
 
 	if dialerErr != nil {
 		return nil, dialerErr
 	}
-	/*
-		@Since: v0.0.9
-		verify certificate
-	*/
-	if c.InsecureSkipVerify {
-		verify = true
+
+	opts := options.Client().ApplyURI(uri).SetDialer(dialer)
+	if len(c.Username) > 0 && len(c.Password) > 0 {
+		opts.SetAuth(options.Credential{
+			AuthSource: c.DB, Username: c.Username, Password: c.Password,
+		})
 	}
-	/*
-		@Since: v0.0.7
-		add certificate support for documentDB
-	*/
-	if c.Certificate != "" {
-		tlsConfig, err := getTLSConfigWithAllServerCertificates([]byte(c.Certificate), verify)
+
+	if c.Certificate != "" || verify {
+		tlsConfig, err := getTLSConfig([]byte(c.Certificate), verify)
 		if err != nil {
 			return nil, err
 		}
-		mongoClient, err := mongo.NewClient(options.Client().ApplyURI(uri).SetAuth(options.Credential{
-			AuthSource: c.DB, Username: c.Username, Password: c.Password,
-		}).SetTLSConfig(tlsConfig).SetDialer(dialer))
-
-		return mongoClient, err
+		opts.SetTLSConfig(tlsConfig)
 	}
 
-	client, err := mongo.NewClient(options.Client().ApplyURI(uri).SetAuth(options.Credential{
-		AuthSource: c.DB, Username: c.Username, Password: c.Password,
-	}).SetDialer(dialer))
+	client, err := mongo.NewClient(opts)
 	return client, err
 }
 
-func getTLSConfigWithAllServerCertificates(ca []byte, verify bool) (*tls.Config, error) {
+func getTLSConfig(ca []byte, verify bool) (*tls.Config, error) {
 	/* As of version 1.2.1, the MongoDB Go Driver will only use the first CA server certificate found in sslcertificateauthorityfile.
 	   The code below addresses this limitation by manually appending all server certificates found in sslcertificateauthorityfile
 	   to a custom TLS configuration used during client creation. */
@@ -154,11 +156,12 @@ func getTLSConfigWithAllServerCertificates(ca []byte, verify bool) (*tls.Config,
 	tlsConfig := new(tls.Config)
 
 	tlsConfig.InsecureSkipVerify = verify
-	tlsConfig.RootCAs = x509.NewCertPool()
-	ok := tlsConfig.RootCAs.AppendCertsFromPEM(ca)
-
-	if !ok {
-		return tlsConfig, errors.New("Failed parsing pem file")
+	if len(ca) > 0 {
+		tlsConfig.RootCAs = x509.NewCertPool()
+		ok := tlsConfig.RootCAs.AppendCertsFromPEM(ca)
+		if !ok {
+			return tlsConfig, errors.New("Failed parsing pem file")
+		}
 	}
 
 	return tlsConfig, nil
