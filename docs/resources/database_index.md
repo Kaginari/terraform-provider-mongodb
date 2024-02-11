@@ -12,9 +12,13 @@ resource "mongodb_db_index" "collection_1" {
   db         = "my_database"
   collection = "example"
   name       = "my_index"
-  keys       = {
-    field_name_to_index  = "1"
-    field_name2_to_index = "-1"
+  keys {
+    field = "field_name_to_index2"
+    value = "-1"
+  }
+  keys {
+    field = "field_name_to_index"
+    value = "1"
   }
   timeout = 30
 }

@@ -34,11 +34,22 @@ func resourceDatabaseIndex() *schema.Resource {
 				ForceNew: true,
 			},
 			"keys": {
-				Type:     schema.TypeMap,
+				Type:     schema.TypeList,
 				Required: true,
 				ForceNew: true,
-				Elem: &schema.Schema{
-					Type: schema.TypeString,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"field": {
+							Type:     schema.TypeString,
+							ForceNew: true,
+							Required: true,
+						},
+						"value": {
+							Type:     schema.TypeString,
+							ForceNew: true,
+							Required: true,
+						},
+					},
 				},
 			},
 			"name": {
@@ -196,18 +207,20 @@ func resourceDatabaseIndexDelete(ctx context.Context, data *schema.ResourceData,
 func createIndex(client *mongo.Client, db string, collectionName string, data *schema.ResourceData) (string, diag.Diagnostics) {
 	collectionClient := client.Database(db).Collection(collectionName)
 
-	var keys = data.Get("keys").(map[string]interface{})
+	var keys = data.Get("keys").([]interface{})
 
 	// Create the index keys
 	indexKeys := bson.D{}
-	for key, value := range keys {
-		valueStr := value.(string)
-		if valueStr == "1" {
-			indexKeys = append(indexKeys, bson.E{Key: key, Value: 1})
-		} else if valueStr == "-1" {
-			indexKeys = append(indexKeys, bson.E{Key: key, Value: -1})
+	for _, _key := range keys {
+		key := _key.(map[string]interface{})
+		keyField := key["field"].(string)
+		value := key["value"].(string)
+		if value == "1" {
+			indexKeys = append(indexKeys, bson.E{Key: keyField, Value: 1})
+		} else if value == "-1" {
+			indexKeys = append(indexKeys, bson.E{Key: keyField, Value: -1})
 		} else {
-			indexKeys = append(indexKeys, bson.E{Key: key, Value: valueStr})
+			indexKeys = append(indexKeys, bson.E{Key: keyField, Value: value})
 		}
 	}
 
