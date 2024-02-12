@@ -18,7 +18,7 @@ resource "mongodb_db_collection" "collection_1" {
 * `db`   - (Required) Database in which the colleciton will be created
 * `name` - (Required) Collection name
 * `keys` - (Required) Collection name
-* `deletion_protection` - (Optional) Timeout for index creation operation. Default is 30 seconds
+* `deletion_protection` - (Optional) Prevent collection from being dropped
 
 
 ## Import

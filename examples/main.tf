@@ -14,7 +14,7 @@ provider "mongodb" {
   port = "27017"
   username = "root"
   password = "root"
-  ssl = false
+  tls = false
   auth_database = "admin"
   #proxy = "socks5://localhost:1080"
 }
@@ -104,10 +104,15 @@ resource "mongodb_db_collection" "collection_exemple_2" {
  }
 
 resource "mongodb_db_index" "index_exemple_1" {
+  depends_on = [mongodb_db_collection.collection_exemple_1]
   db = "exemple"
-  collection = "collection_2"
-  keys = {
-    field_name_to_index="1"
-    field_name2_to_index="-1"
+  collection = "collection_1"
+  keys {
+    field = "field_name_to_index"
+    value = "1"
+  }
+  keys {
+    field = "field_name_to_index2"
+    value = "-1"
   }
 }
