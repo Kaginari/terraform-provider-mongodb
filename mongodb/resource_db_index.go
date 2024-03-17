@@ -219,6 +219,10 @@ func createIndex(client *mongo.Client, db string, collectionName string, data *s
 			indexKeys = append(indexKeys, bson.E{Key: keyField, Value: 1})
 		} else if value == "-1" {
 			indexKeys = append(indexKeys, bson.E{Key: keyField, Value: -1})
+		} else if value == "true" {
+			indexKeys = append(indexKeys, bson.E{Key: keyField, Value: true})
+		} else if value == "false" {
+			indexKeys = append(indexKeys, bson.E{Key: keyField, Value: false})
 		} else {
 			indexKeys = append(indexKeys, bson.E{Key: keyField, Value: value})
 		}
