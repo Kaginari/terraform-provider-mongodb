@@ -4,11 +4,12 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"strings"
+
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/mitchellh/mapstructure"
 	"go.mongodb.org/mongo-driver/bson"
-	"strings"
 )
 
 func resourceDatabaseUser() *schema.Resource {
@@ -25,11 +26,11 @@ func resourceDatabaseUser() *schema.Resource {
 				Type:     schema.TypeString,
 				Required: true,
 			},
-			"name":{
+			"name": {
 				Type:     schema.TypeString,
 				Required: true,
 			},
-			"password":{
+			"password": {
 				Type:     schema.TypeString,
 				Required: true,
 			},
@@ -54,11 +55,9 @@ func resourceDatabaseUser() *schema.Resource {
 	}
 }
 
-
-
 func resourceDatabaseUserDelete(ctx context.Context, data *schema.ResourceData, i interface{}) diag.Diagnostics {
 	var config = i.(*MongoDatabaseConfiguration)
-	client , connectionError := MongoClientInit(config)
+	client, connectionError := MongoClientInit(config)
 	if connectionError != nil {
 		return diag.Errorf("Error connecting to database : %s ", connectionError)
 	}
@@ -78,7 +77,7 @@ func resourceDatabaseUserDelete(ctx context.Context, data *schema.ResourceData, 
 
 	result := adminDB.RunCommand(context.Background(), bson.D{{Key: "dropUser", Value: userName}})
 	if result.Err() != nil {
-		return diag.Errorf("%s",result.Err())
+		return diag.Errorf("%s", result.Err())
 	}
 
 	return nil
@@ -86,7 +85,7 @@ func resourceDatabaseUserDelete(ctx context.Context, data *schema.ResourceData, 
 
 func resourceDatabaseUserUpdate(ctx context.Context, data *schema.ResourceData, i interface{}) diag.Diagnostics {
 	var config = i.(*MongoDatabaseConfiguration)
-	client , connectionError := MongoClientInit(config)
+	client, connectionError := MongoClientInit(config)
 	if connectionError != nil {
 		return diag.Errorf("Error connecting to database : %s ", connectionError)
 	}
@@ -99,12 +98,12 @@ func resourceDatabaseUserUpdate(ctx context.Context, data *schema.ResourceData, 
 	var userName = data.Get("name").(string)
 	var database = data.Get("auth_database").(string)
 	var userPassword = data.Get("password").(string)
-	
+
 	adminDB := client.Database(database)
 
 	result := adminDB.RunCommand(context.Background(), bson.D{{Key: "dropUser", Value: userName}})
 	if result.Err() != nil {
-		return diag.Errorf("%s",result.Err())
+		return diag.Errorf("%s", result.Err())
 	}
 	var roleList []Role
 	var user = DbUser{
@@ -116,12 +115,12 @@ func resourceDatabaseUserUpdate(ctx context.Context, data *schema.ResourceData, 
 	if roleMapErr != nil {
 		return diag.Errorf("Error decoding map : %s ", roleMapErr)
 	}
-	err2 := createUser(client,user,roleList,database)
+	err2 := createUser(client, user, roleList, database)
 	if err2 != nil {
 		return diag.Errorf("Could not create the user : %s ", err2)
 	}
 
-	newId := database+"."+userName
+	newId := database + "." + userName
 	encoded := base64.StdEncoding.EncodeToString([]byte(newId))
 	data.SetId(encoded)
 	return resourceDatabaseUserRead(ctx, data, i)
@@ -129,16 +128,16 @@ func resourceDatabaseUserUpdate(ctx context.Context, data *schema.ResourceData, 
 
 func resourceDatabaseUserRead(ctx context.Context, data *schema.ResourceData, i interface{}) diag.Diagnostics {
 	var config = i.(*MongoDatabaseConfiguration)
-	client , connectionError := MongoClientInit(config)
+	client, connectionError := MongoClientInit(config)
 	if connectionError != nil {
 		return diag.Errorf("Error connecting to database : %s ", connectionError)
 	}
 	stateID := data.State().ID
-	username, database , err := resourceDatabaseUserParseId(stateID)
+	username, database, err := resourceDatabaseUserParseId(stateID)
 	if err != nil {
-		return diag.Errorf("%s",err)
+		return diag.Errorf("%s", err)
 	}
-	result , decodeError := getUser(client,username,database)
+	result, decodeError := getUser(client, username, database)
 	if decodeError != nil {
 		return diag.Errorf("Error decoding user : %s ", err)
 	}
@@ -148,22 +147,22 @@ func resourceDatabaseUserRead(ctx context.Context, data *schema.ResourceData, i 
 	roles := make([]interface{}, len(result.Users[0].Roles))
 
 	for i, s := range result.Users[0].Roles {
-			roles[i] = map[string]interface{}{
-				"db": s.Db,
-				"role": s.Role,
-			}
+		roles[i] = map[string]interface{}{
+			"db":   s.Db,
+			"role": s.Role,
+		}
 	}
 	dataSetError := data.Set("role", roles)
-	if dataSetError != nil  {
-		return diag.Errorf("error setting role : %s " , dataSetError)
+	if dataSetError != nil {
+		return diag.Errorf("error setting role : %s ", dataSetError)
 	}
 	dataSetError = data.Set("auth_database", database)
-	if dataSetError != nil  {
-		return diag.Errorf("error setting auth_db : %s " , dataSetError)
+	if dataSetError != nil {
+		return diag.Errorf("error setting auth_db : %s ", dataSetError)
 	}
 	dataSetError = data.Set("password", data.Get("password"))
-	if dataSetError != nil  {
-		return diag.Errorf("error setting password : %s " , dataSetError)
+	if dataSetError != nil {
+		return diag.Errorf("error setting password : %s ", dataSetError)
 	}
 	data.SetId(stateID)
 	return nil
@@ -171,7 +170,7 @@ func resourceDatabaseUserRead(ctx context.Context, data *schema.ResourceData, i 
 
 func resourceDatabaseUserCreate(ctx context.Context, data *schema.ResourceData, i interface{}) diag.Diagnostics {
 	var config = i.(*MongoDatabaseConfiguration)
-	client , connectionError := MongoClientInit(config)
+	client, connectionError := MongoClientInit(config)
 	if connectionError != nil {
 		return diag.Errorf("Error connecting to database : %s ", connectionError)
 	}
@@ -188,18 +187,18 @@ func resourceDatabaseUserCreate(ctx context.Context, data *schema.ResourceData, 
 	if roleMapErr != nil {
 		return diag.Errorf("Error decoding map : %s ", roleMapErr)
 	}
-	err := createUser(client,user,roleList,database)
+	err := createUser(client, user, roleList, database)
 	if err != nil {
 		return diag.Errorf("Could not create the user : %s ", err)
 	}
-	str := database+"."+userName
+	str := database + "." + userName
 	encoded := base64.StdEncoding.EncodeToString([]byte(str))
 	data.SetId(encoded)
 	return resourceDatabaseUserRead(ctx, data, i)
 }
 
-func resourceDatabaseUserParseId(id string) (string, string, error){
-	result , errEncoding := base64.StdEncoding.DecodeString(id)
+func resourceDatabaseUserParseId(id string) (string, string, error) {
+	result, errEncoding := base64.StdEncoding.DecodeString(id)
 
 	if errEncoding != nil {
 		return "", "", fmt.Errorf("unexpected format of ID Error : %s", errEncoding)
@@ -212,5 +211,5 @@ func resourceDatabaseUserParseId(id string) (string, string, error){
 	database := parts[0]
 	userName := parts[1]
 
-	return userName , database , nil
+	return userName, database, nil
 }
