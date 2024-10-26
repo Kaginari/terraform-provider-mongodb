@@ -162,3 +162,11 @@ func createRole(client *mongo.Client, role string, roles []Role, privilege []Pri
 	}
 	return nil
 }
+
+func dropRole(client *mongo.Client, role string, database string) error {
+	result := client.Database(database).RunCommand(context.Background(), bson.D{{Key: "dropRole", Value: role}})
+	if result.Err() != nil {
+		return result.Err()
+	}
+	return nil
+}

@@ -9,7 +9,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/mitchellh/mapstructure"
-	"go.mongodb.org/mongo-driver/bson"
 )
 
 func resourceDatabaseRole() *schema.Resource {
@@ -106,9 +105,7 @@ func resourceDatabaseRoleCreate(ctx context.Context, data *schema.ResourceData, 
 	if err != nil {
 		return diag.Errorf("Could not create the role : %s ", err)
 	}
-	str := database + "." + role
-	encoded := base64.StdEncoding.EncodeToString([]byte(str))
-	data.SetId(encoded)
+	data.SetId(makeRoleId(role, database))
 	return resourceDatabaseRoleRead(ctx, data, i)
 }
 
@@ -118,18 +115,15 @@ func resourceDatabaseRoleDelete(ctx context.Context, data *schema.ResourceData, 
 	if connectionError != nil {
 		return diag.Errorf("Error connecting to database : %s ", connectionError)
 	}
-	var stateId = data.State().ID
-	roleName, database, err := resourceDatabaseRoleParseId(stateId)
 
-	if err != nil {
-		return diag.Errorf("%s", err)
+	roleName, database, parseRoleIdErr := parseRoleId(data.State().ID)
+	if parseRoleIdErr != nil {
+		return diag.Errorf("%s", parseRoleIdErr)
 	}
 
-	db := client.Database(database)
-	result := db.RunCommand(context.Background(), bson.D{{Key: "dropRole", Value: roleName}})
-
-	if result.Err() != nil {
-		return diag.Errorf("%s", result.Err())
+	dropRoleErr := dropRole(client, roleName, database)
+	if dropRoleErr != nil {
+		return diag.Errorf("Error deleting the role: %s ", dropRoleErr)
 	}
 
 	return nil
@@ -142,18 +136,15 @@ func resourceDatabaseRoleUpdate(ctx context.Context, data *schema.ResourceData, 
 		return diag.Errorf("Error connecting to database : %s ", connectionError)
 	}
 	var role = data.Get("name").(string)
-	var stateId = data.State().ID
-	roleName, database, err := resourceDatabaseRoleParseId(stateId)
 
-	if err != nil {
-		return diag.Errorf("%s", err)
+	roleName, database, parseRoleIdErr := parseRoleId(data.State().ID)
+	if parseRoleIdErr != nil {
+		return diag.Errorf("%s", parseRoleIdErr)
 	}
 
-	db := client.Database(database)
-	result := db.RunCommand(context.Background(), bson.D{{Key: "dropRole", Value: roleName}})
-
-	if result.Err() != nil {
-		return diag.Errorf("%s", result.Err())
+	dropRoleErr := dropRole(client, roleName, database)
+	if dropRoleErr != nil {
+		return diag.Errorf("Error deleting the role: %s ", dropRoleErr)
 	}
 
 	var roleList []Role
@@ -174,11 +165,9 @@ func resourceDatabaseRoleUpdate(ctx context.Context, data *schema.ResourceData, 
 	err2 := createRole(client, role, roleList, privileges, database)
 
 	if err2 != nil {
-		return diag.Errorf("Could not create the role  :  %s ", err)
+		return diag.Errorf("Could not create the role  :  %s ", err2)
 	}
-	str := database + "." + role
-	encoded := base64.StdEncoding.EncodeToString([]byte(str))
-	data.SetId(encoded)
+	data.SetId(makeRoleId(role, database))
 
 	return resourceDatabaseRoleRead(ctx, data, i)
 }
@@ -190,14 +179,14 @@ func resourceDatabaseRoleRead(ctx context.Context, data *schema.ResourceData, i 
 	if connectionError != nil {
 		return diag.Errorf("Error connecting to database : %s ", connectionError)
 	}
-	stateID := data.State().ID
-	roleName, database, err := resourceDatabaseRoleParseId(stateID)
-	if err != nil {
-		return diag.Errorf("%s", err)
+
+	roleName, database, parseRoleIdErr := parseRoleId(data.State().ID)
+	if parseRoleIdErr != nil {
+		return diag.Errorf("%s", parseRoleIdErr)
 	}
 	result, decodeError := getRole(client, roleName, database)
 	if decodeError != nil {
-		return diag.Errorf("Error decoding role : %s ", err)
+		return diag.Errorf("Error decoding role : %s ", decodeError)
 	}
 	if len(result.Roles) == 0 {
 		return diag.Errorf("Role does not exist")
@@ -212,7 +201,7 @@ func resourceDatabaseRoleRead(ctx context.Context, data *schema.ResourceData, i 
 	}
 	dataSetError := data.Set("inherited_role", inheritedRoles)
 	if dataSetError != nil {
-		return diag.Errorf("Error setting  inherited roles : %s ", err)
+		return diag.Errorf("Error setting  inherited roles : %s ", dataSetError)
 	}
 	privileges := make([]interface{}, len(result.Roles[0].Privileges))
 
@@ -225,23 +214,23 @@ func resourceDatabaseRoleRead(ctx context.Context, data *schema.ResourceData, i 
 	}
 	dataSetError = data.Set("privilege", privileges)
 	if dataSetError != nil {
-		return diag.Errorf("Error setting role privilege : %s ", err)
+		return diag.Errorf("Error setting role privilege : %s ", dataSetError)
 	}
 	dataSetError = data.Set("database", database)
 	if dataSetError != nil {
-		return diag.Errorf("Error setting role database : %s ", err)
+		return diag.Errorf("Error setting role database : %s ", dataSetError)
 	}
 	dataSetError = data.Set("name", roleName)
 	if dataSetError != nil {
-		return diag.Errorf("Error setting  role nam: %s ", err)
+		return diag.Errorf("Error setting  role nam: %s ", dataSetError)
 	}
 
-	data.SetId(stateID)
+	data.SetId(makeRoleId(roleName, database))
 	diags = nil
 	return diags
 }
 
-func resourceDatabaseRoleParseId(id string) (string, string, error) {
+func parseRoleId(id string) (string, string, error) {
 	result, errEncoding := base64.StdEncoding.DecodeString(id)
 
 	if errEncoding != nil {
@@ -256,4 +245,9 @@ func resourceDatabaseRoleParseId(id string) (string, string, error) {
 	roleName := parts[1]
 
 	return roleName, database, nil
+}
+
+func makeRoleId(role string, database string) string {
+	str := database + "." + role
+	return base64.StdEncoding.EncodeToString([]byte(str))
 }
