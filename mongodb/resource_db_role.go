@@ -83,7 +83,7 @@ func resourceDatabaseRoleCreate(ctx context.Context, data *schema.ResourceData, 
 	if connectionError != nil {
 		return diag.Errorf("Error connecting to database : %s ", connectionError)
 	}
-	var role = data.Get("name").(string)
+	var roleName = data.Get("name").(string)
 	var database = data.Get("database").(string)
 	var roleList []Role
 	var privileges []PrivilegeDto
@@ -100,12 +100,13 @@ func resourceDatabaseRoleCreate(ctx context.Context, data *schema.ResourceData, 
 		return diag.Errorf("Error decoding map : %s ", privMapErr)
 	}
 
-	err := createRole(client, role, roleList, privileges, database)
+	createRoleErr := createRole(client, roleName, roleList, privileges, database)
 
-	if err != nil {
-		return diag.Errorf("Could not create the role : %s ", err)
+	if createRoleErr != nil {
+		return diag.Errorf("Could not create the role : %s ", createRoleErr)
 	}
-	data.SetId(makeRoleId(role, database))
+	data.SetId(makeRoleId(roleName, database))
+
 	return resourceDatabaseRoleRead(ctx, data, i)
 }
 
@@ -137,16 +138,13 @@ func resourceDatabaseRoleUpdate(ctx context.Context, data *schema.ResourceData, 
 	}
 	var role = data.Get("name").(string)
 
-	roleName, database, parseRoleIdErr := parseRoleId(data.State().ID)
+	_, _, parseRoleIdErr := parseRoleId(data.State().ID)
 	if parseRoleIdErr != nil {
 		return diag.Errorf("%s", parseRoleIdErr)
 	}
 
-	dropRoleErr := dropRole(client, roleName, database)
-	if dropRoleErr != nil {
-		return diag.Errorf("Error deleting the role: %s ", dropRoleErr)
-	}
-
+	var roleName = data.Get("name").(string)
+	var database = data.Get("database").(string)
 	var roleList []Role
 	var privileges []PrivilegeDto
 
@@ -162,13 +160,17 @@ func resourceDatabaseRoleUpdate(ctx context.Context, data *schema.ResourceData, 
 		return diag.Errorf("Error decoding map : %s ", privMapErr)
 	}
 
-	err2 := createRole(client, role, roleList, privileges, database)
-
-	if err2 != nil {
-		return diag.Errorf("Could not create the role  :  %s ", err2)
+	dropRoleErr := dropRole(client, roleName, database)
+	if dropRoleErr != nil {
+		return diag.Errorf("Error deleting the role: %s ", dropRoleErr)
 	}
-	data.SetId(makeRoleId(role, database))
 
+	createRoleErr := createRole(client, role, roleList, privileges, database)
+	if createRoleErr != nil {
+		return diag.Errorf("Could not create the role  :  %s ", createRoleErr)
+	}
+
+	data.SetId(makeRoleId(role, database))
 	return resourceDatabaseRoleRead(ctx, data, i)
 }
 
