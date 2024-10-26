@@ -108,7 +108,7 @@ func getUser(client *mongo.Client, username string, database string) (SingleResu
 	return decodedResult, nil
 }
 
-func deleteUser(client *mongo.Client, username string, database string) error {
+func dropUser(client *mongo.Client, username string, database string) error {
 	result := client.Database(database).RunCommand(context.Background(), bson.D{{Key: "dropUser", Value: username}})
 	if result.Err() != nil {
 		return result.Err()

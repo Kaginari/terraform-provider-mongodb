@@ -67,7 +67,7 @@ func resourceDatabaseUserDelete(ctx context.Context, data *schema.ResourceData, 
 		return diag.Errorf("ID mismatch %s", parseUserIdErr)
 	}
 
-	deleteUserErr := deleteUser(client, userName, database)
+	deleteUserErr := dropUser(client, userName, database)
 	if deleteUserErr != nil {
 		return diag.Errorf("Could not delete the user : %s ", deleteUserErr)
 	}
@@ -102,7 +102,7 @@ func resourceDatabaseUserUpdate(ctx context.Context, data *schema.ResourceData, 
 		Password: userPassword,
 	}
 
-	deleteUserErr := deleteUser(client, userName, database)
+	deleteUserErr := dropUser(client, userName, database)
 	if deleteUserErr != nil {
 		return diag.Errorf("Could not delete the user : %s ", deleteUserErr)
 	}
