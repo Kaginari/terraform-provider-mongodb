@@ -175,7 +175,6 @@ func resourceDatabaseRoleUpdate(ctx context.Context, data *schema.ResourceData, 
 }
 
 func resourceDatabaseRoleRead(ctx context.Context, data *schema.ResourceData, i interface{}) diag.Diagnostics {
-	var diags diag.Diagnostics
 	var config = i.(*MongoDatabaseConfiguration)
 	client, connectionError := MongoClientInit(config)
 	if connectionError != nil {
@@ -186,50 +185,56 @@ func resourceDatabaseRoleRead(ctx context.Context, data *schema.ResourceData, i 
 	if parseRoleIdErr != nil {
 		return diag.Errorf("%s", parseRoleIdErr)
 	}
-	result, decodeError := getRole(client, roleName, database)
+	role, decodeError := getRole(client, roleName, database)
 	if decodeError != nil {
 		return diag.Errorf("Error decoding role : %s ", decodeError)
 	}
-	if len(result.Roles) == 0 {
-		return diag.Errorf("Role does not exist")
-	}
-	inheritedRoles := make([]interface{}, len(result.Roles[0].InheritedRoles))
 
-	for i, s := range result.Roles[0].InheritedRoles {
+	writeRoleErr := writeRoleToData(data, role)
+	if writeRoleErr != nil {
+		return diag.Errorf("Error writing role : %s ", writeRoleErr)
+	}
+
+	return nil
+}
+
+func writeRoleToData(data *schema.ResourceData, role *MongodbRole) error {
+	inheritedRoles := make([]interface{}, len(role.InheritedRoles))
+
+	for i, s := range role.InheritedRoles {
 		inheritedRoles[i] = map[string]interface{}{
 			"db":   s.Db,
 			"role": s.Role,
 		}
 	}
-	dataSetError := data.Set("inherited_role", inheritedRoles)
-	if dataSetError != nil {
-		return diag.Errorf("Error setting  inherited roles : %s ", dataSetError)
-	}
-	privileges := make([]interface{}, len(result.Roles[0].Privileges))
 
-	for i, s := range result.Roles[0].Privileges {
+	privileges := make([]interface{}, len(role.Privileges))
+
+	for i, s := range role.Privileges {
 		privileges[i] = map[string]interface{}{
 			"db":         s.Resource.Db,
 			"collection": s.Resource.Collection,
 			"actions":    s.Actions,
 		}
 	}
-	dataSetError = data.Set("privilege", privileges)
-	if dataSetError != nil {
-		return diag.Errorf("Error setting role privilege : %s ", dataSetError)
+	err := data.Set("inherited_role", inheritedRoles)
+	if err != nil {
+		return err
 	}
-	dataSetError = data.Set("database", database)
-	if dataSetError != nil {
-		return diag.Errorf("Error setting role database : %s ", dataSetError)
+	err = data.Set("privilege", privileges)
+	if err != nil {
+		return err
 	}
-	dataSetError = data.Set("name", roleName)
-	if dataSetError != nil {
-		return diag.Errorf("Error setting  role nam: %s ", dataSetError)
+	err = data.Set("database", role.Db)
+	if err != nil {
+		return err
 	}
-
-	data.SetId(makeRoleId(roleName, database))
-	diags = nil
-	return diags
+	err = data.Set("name", role.Role)
+	if err != nil {
+		return err
+	}
+	data.SetId(makeRoleId(role.Role, role.Db))
+	return nil
 }
 
 func parseRoleId(id string) (string, string, error) {

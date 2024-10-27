@@ -54,6 +54,51 @@ func resourceDatabaseUser() *schema.Resource {
 	}
 }
 
+func readUserFromData(data *schema.ResourceData) (*DbUser, error) {
+	var userName = data.Get("name").(string)
+	var database = data.Get("auth_database").(string)
+	var userPassword = data.Get("password").(string)
+
+	var roleList []Role
+	roles := data.Get("role").(*schema.Set).List()
+	roleMapErr := mapstructure.Decode(roles, &roleList)
+	if roleMapErr != nil {
+		return nil, roleMapErr
+	}
+
+	var user = DbUser{
+		AuthDatabase: database,
+		Name:         userName,
+		Password:     userPassword,
+		Roles:        roleList,
+	}
+
+	return &user, nil
+}
+
+func writeUserToData(data *schema.ResourceData, user *DbUser) error {
+	rolesMap := make([]interface{}, len(user.Roles))
+	for i, s := range user.Roles {
+		rolesMap[i] = map[string]interface{}{"db": s.Db, "role": s.Role}
+	}
+
+	err := data.Set("role", rolesMap)
+	if err != nil {
+		return err
+	}
+	err = data.Set("auth_database", user.AuthDatabase)
+	if err != nil {
+		return err
+	}
+	err = data.Set("password", user.Password)
+	if err != nil {
+		return err
+	}
+
+	data.SetId(makeUserId(user.Name, user.AuthDatabase))
+	return nil
+}
+
 func resourceDatabaseUserDelete(ctx context.Context, data *schema.ResourceData, i interface{}) diag.Diagnostics {
 	var config = i.(*MongoDatabaseConfiguration)
 	client, connectionError := MongoClientInit(config)
@@ -81,25 +126,14 @@ func resourceDatabaseUserUpdate(ctx context.Context, data *schema.ResourceData, 
 	if connectionError != nil {
 		return diag.Errorf("Error connecting to database : %s ", connectionError)
 	}
-	_, _, parseUserIdErr := parseUserId(data.State().ID)
+	userName, database, parseUserIdErr := parseUserId(data.State().ID)
 	if parseUserIdErr != nil {
 		return diag.Errorf("ID mismatch %s", parseUserIdErr)
 	}
 
-	var userName = data.Get("name").(string)
-	var database = data.Get("auth_database").(string)
-	var userPassword = data.Get("password").(string)
-
-	var roleList []Role
-	roles := data.Get("role").(*schema.Set).List()
-	roleMapErr := mapstructure.Decode(roles, &roleList)
-	if roleMapErr != nil {
-		return diag.Errorf("Error decoding map : %s ", roleMapErr)
-	}
-
-	var user = DbUser{
-		Name:     userName,
-		Password: userPassword,
+	user, convertUserErr := readUserFromData(data)
+	if convertUserErr != nil {
+		return diag.Errorf("Error reading user : %s ", convertUserErr)
 	}
 
 	deleteUserErr := dropUser(client, userName, database)
@@ -107,13 +141,17 @@ func resourceDatabaseUserUpdate(ctx context.Context, data *schema.ResourceData, 
 		return diag.Errorf("Could not delete the user : %s ", deleteUserErr)
 	}
 
-	createUserErr := createUser(client, user, roleList, database)
+	createUserErr := createUser(client, user)
 	if createUserErr != nil {
 		return diag.Errorf("Could not create the user : %s ", createUserErr)
 	}
 
-	data.SetId(makeUserId(userName, database))
-	return resourceDatabaseUserRead(ctx, data, i)
+	writeUserErr := writeUserToData(data, user)
+	if writeUserErr != nil {
+		return diag.Errorf("Error writing user : %s ", writeUserErr)
+	}
+
+	return nil
 }
 
 func resourceDatabaseUserRead(ctx context.Context, data *schema.ResourceData, i interface{}) diag.Diagnostics {
@@ -122,40 +160,23 @@ func resourceDatabaseUserRead(ctx context.Context, data *schema.ResourceData, i 
 	if connectionError != nil {
 		return diag.Errorf("Error connecting to database : %s ", connectionError)
 	}
-	username, database, parseUserIdErr := parseUserId(data.State().ID)
-	password := data.Get("password")
+
+	userName, database, parseUserIdErr := parseUserId(data.State().ID)
+	password := data.Get("password").(string)
 	if parseUserIdErr != nil {
 		return diag.Errorf("Error parsing user id : %s ", parseUserIdErr)
 	}
-	result, decodeError := getUser(client, username, database)
+
+	user, decodeError := getUser(client, userName, database, password)
 	if decodeError != nil {
 		return diag.Errorf("Error decoding user : %s ", decodeError)
 	}
-	if len(result.Users) == 0 {
-		return diag.Errorf("User %s.%s does not exist", database, username)
-	}
-	roles := make([]interface{}, len(result.Users[0].Roles))
 
-	for i, s := range result.Users[0].Roles {
-		roles[i] = map[string]interface{}{
-			"db":   s.Db,
-			"role": s.Role,
-		}
+	writeUserErr := writeUserToData(data, user)
+	if writeUserErr != nil {
+		return diag.Errorf("Error writing user : %s ", writeUserErr)
 	}
 
-	dataSetError := data.Set("role", roles)
-	if dataSetError != nil {
-		return diag.Errorf("error setting role : %s ", dataSetError)
-	}
-	dataSetError = data.Set("auth_database", database)
-	if dataSetError != nil {
-		return diag.Errorf("error setting auth_db : %s ", dataSetError)
-	}
-	dataSetError = data.Set("password", password)
-	if dataSetError != nil {
-		return diag.Errorf("error setting password : %s ", dataSetError)
-	}
-	data.SetId(makeUserId(username, database))
 	return nil
 }
 
@@ -166,26 +187,22 @@ func resourceDatabaseUserCreate(ctx context.Context, data *schema.ResourceData, 
 		return diag.Errorf("Error connecting to database : %s ", connectionError)
 	}
 
-	var database = data.Get("auth_database").(string)
-	var userName = data.Get("name").(string)
-	var userPassword = data.Get("password").(string)
-	var roleList []Role
-	roles := data.Get("role").(*schema.Set).List()
-	roleMapErr := mapstructure.Decode(roles, &roleList)
-	if roleMapErr != nil {
-		return diag.Errorf("Error decoding map : %s ", roleMapErr)
+	user, convertUserErr := readUserFromData(data)
+	if convertUserErr != nil {
+		return diag.Errorf("Error reading user : %s ", convertUserErr)
 	}
 
-	var user = DbUser{
-		Name:     userName,
-		Password: userPassword,
+	createUserErr := createUser(client, user)
+	if createUserErr != nil {
+		return diag.Errorf("Could not create the user : %s ", createUserErr)
 	}
-	err := createUser(client, user, roleList, database)
-	if err != nil {
-		return diag.Errorf("Could not create the user : %s ", err)
+
+	writeUserErr := writeUserToData(data, user)
+	if writeUserErr != nil {
+		return diag.Errorf("Error writing user : %s ", writeUserErr)
 	}
-	data.SetId(makeUserId(userName, database))
-	return resourceDatabaseUserRead(ctx, data, i)
+
+	return nil
 }
 
 func parseUserId(id string) (string, string, error) {
