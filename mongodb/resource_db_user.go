@@ -55,13 +55,13 @@ func resourceDatabaseUser() *schema.Resource {
 }
 
 func readUserFromData(data *schema.ResourceData) (*DbUser, error) {
-	var userName = data.Get("name").(string)
-	var database = data.Get("auth_database").(string)
-	var userPassword = data.Get("password").(string)
+	userName := data.Get("name").(string)
+	database := data.Get("auth_database").(string)
+	userPassword := data.Get("password").(string)
+	rolesData := data.Get("role").(*schema.Set).List()
 
-	var roleList []Role
-	roles := data.Get("role").(*schema.Set).List()
-	roleMapErr := mapstructure.Decode(roles, &roleList)
+	var roles []RoleReference
+	roleMapErr := mapstructure.Decode(rolesData, &roles)
 	if roleMapErr != nil {
 		return nil, roleMapErr
 	}
@@ -70,19 +70,19 @@ func readUserFromData(data *schema.ResourceData) (*DbUser, error) {
 		AuthDatabase: database,
 		Name:         userName,
 		Password:     userPassword,
-		Roles:        roleList,
+		Roles:        roles,
 	}
 
 	return &user, nil
 }
 
 func writeUserToData(data *schema.ResourceData, user *DbUser) error {
-	rolesMap := make([]interface{}, len(user.Roles))
+	roles := make([]interface{}, len(user.Roles))
 	for i, s := range user.Roles {
-		rolesMap[i] = map[string]interface{}{"db": s.Db, "role": s.Role}
+		roles[i] = map[string]interface{}{"db": s.Db, "role": s.Role}
 	}
 
-	err := data.Set("role", rolesMap)
+	err := data.Set("role", roles)
 	if err != nil {
 		return err
 	}

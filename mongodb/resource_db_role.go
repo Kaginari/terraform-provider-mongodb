@@ -85,8 +85,8 @@ func resourceDatabaseRoleCreate(ctx context.Context, data *schema.ResourceData, 
 	}
 	var roleName = data.Get("name").(string)
 	var database = data.Get("database").(string)
-	var roleList []Role
-	var privileges []PrivilegeDto
+	var roleList []RoleReference
+	var privileges []Privilege
 
 	privilege := data.Get("privilege").(*schema.Set).List()
 	roles := data.Get("inherited_role").(*schema.Set).List()
@@ -145,8 +145,8 @@ func resourceDatabaseRoleUpdate(ctx context.Context, data *schema.ResourceData, 
 
 	var roleName = data.Get("name").(string)
 	var database = data.Get("database").(string)
-	var roleList []Role
-	var privileges []PrivilegeDto
+	var roleList []RoleReference
+	var privileges []Privilege
 
 	privilege := data.Get("privilege").(*schema.Set).List()
 	roles := data.Get("inherited_role").(*schema.Set).List()
