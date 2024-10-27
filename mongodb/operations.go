@@ -24,6 +24,13 @@ func (role RoleReference) String() string {
 	return fmt.Sprintf("{ role : %s , db : %s }", role.Role, role.Db)
 }
 
+type Role struct {
+	Name      string
+	Database  string
+	Roles     []RoleReference
+	Privilege []Privilege
+}
+
 type Privilege struct {
 	Db         string   `json:"db"`
 	Collection string   `json:"collection"`
@@ -31,20 +38,20 @@ type Privilege struct {
 }
 
 type MongodbPrivilege struct {
-	Resource Resource `json:"resource"`
-	Actions  []string `json:"actions"`
+	Resource MongodbResource `json:"resource"`
+	Actions  []string        `json:"actions"`
 }
 
 func (privilege MongodbPrivilege) String() string {
 	return fmt.Sprintf("{ resource : %s , actions : %s }", privilege.Resource, privilege.Actions)
 }
 
-type Resource struct {
+type MongodbResource struct {
 	Db         string `json:"db"`
 	Collection string `json:"collection"`
 }
 
-func (resource Resource) String() string {
+func (resource MongodbResource) String() string {
 	return fmt.Sprintf(" { db : %s , collection : %s }", resource.Db, resource.Collection)
 }
 
@@ -153,30 +160,31 @@ func getRole(client *mongo.Client, roleName string, database string) (*MongodbRo
 	return &decodedResult.Roles[0], nil
 }
 
-func createRole(client *mongo.Client, role string, roles []RoleReference, privilege []Privilege, database string) error {
-	var privileges []MongodbPrivilege
-	for _, element := range privilege {
-		var prv MongodbPrivilege
-		prv.Resource = Resource{
-			Db:         element.Db,
-			Collection: element.Collection,
+func createRole(client *mongo.Client, role *Role) error {
+	var privilegesData []MongodbPrivilege
+	for _, element := range role.Privilege {
+		privilege := MongodbPrivilege{
+			Resource: MongodbResource{
+				Db:         element.Db,
+				Collection: element.Collection,
+			},
+			Actions: element.Actions,
 		}
-		prv.Actions = element.Actions
-		privileges = append(privileges, prv)
+		privilegesData = append(privilegesData, privilege)
 	}
 
 	var privilegesValue interface{} = []bson.M{}
-	if len(privileges) != 0 {
-		privilegesValue = privileges
+	if len(privilegesData) != 0 {
+		privilegesValue = privilegesData
 	}
 
 	var rolesValue interface{} = []bson.M{}
-	if len(roles) != 0 {
-		rolesValue = roles
+	if len(role.Roles) != 0 {
+		rolesValue = role.Roles
 	}
 
-	result := client.Database(database).RunCommand(context.Background(), bson.D{
-		{Key: "createRole", Value: role},
+	result := client.Database(role.Database).RunCommand(context.Background(), bson.D{
+		{Key: "createRole", Value: role.Name},
 		{Key: "privileges", Value: privilegesValue},
 		{Key: "roles", Value: rolesValue},
 	})

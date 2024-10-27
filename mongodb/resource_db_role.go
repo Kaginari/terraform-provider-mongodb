@@ -77,12 +77,7 @@ func resourceDatabaseRole() *schema.Resource {
 	}
 }
 
-func resourceDatabaseRoleCreate(ctx context.Context, data *schema.ResourceData, i interface{}) diag.Diagnostics {
-	var config = i.(*MongoDatabaseConfiguration)
-	client, connectionError := MongoClientInit(config)
-	if connectionError != nil {
-		return diag.Errorf("Error connecting to database : %s ", connectionError)
-	}
+func readRoleFromData(data *schema.ResourceData) (*Role, error) {
 	var roleName = data.Get("name").(string)
 	var database = data.Get("database").(string)
 	var roleList []RoleReference
@@ -93,109 +88,21 @@ func resourceDatabaseRoleCreate(ctx context.Context, data *schema.ResourceData, 
 
 	roleMapErr := mapstructure.Decode(roles, &roleList)
 	if roleMapErr != nil {
-		return diag.Errorf("Error decoding map : %s ", roleMapErr)
+		return nil, roleMapErr
 	}
 	privMapErr := mapstructure.Decode(privilege, &privileges)
 	if privMapErr != nil {
-		return diag.Errorf("Error decoding map : %s ", privMapErr)
+		return nil, privMapErr
 	}
 
-	createRoleErr := createRole(client, roleName, roleList, privileges, database)
-
-	if createRoleErr != nil {
-		return diag.Errorf("Could not create the role : %s ", createRoleErr)
-	}
-	data.SetId(makeRoleId(roleName, database))
-
-	return resourceDatabaseRoleRead(ctx, data, i)
-}
-
-func resourceDatabaseRoleDelete(ctx context.Context, data *schema.ResourceData, i interface{}) diag.Diagnostics {
-	var config = i.(*MongoDatabaseConfiguration)
-	client, connectionError := MongoClientInit(config)
-	if connectionError != nil {
-		return diag.Errorf("Error connecting to database : %s ", connectionError)
+	role := Role{
+		Name:      roleName,
+		Database:  database,
+		Roles:     roleList,
+		Privilege: privileges,
 	}
 
-	roleName, database, parseRoleIdErr := parseRoleId(data.State().ID)
-	if parseRoleIdErr != nil {
-		return diag.Errorf("%s", parseRoleIdErr)
-	}
-
-	dropRoleErr := dropRole(client, roleName, database)
-	if dropRoleErr != nil {
-		return diag.Errorf("Error deleting the role: %s ", dropRoleErr)
-	}
-
-	return nil
-}
-
-func resourceDatabaseRoleUpdate(ctx context.Context, data *schema.ResourceData, i interface{}) diag.Diagnostics {
-	var config = i.(*MongoDatabaseConfiguration)
-	client, connectionError := MongoClientInit(config)
-	if connectionError != nil {
-		return diag.Errorf("Error connecting to database : %s ", connectionError)
-	}
-	var role = data.Get("name").(string)
-
-	_, _, parseRoleIdErr := parseRoleId(data.State().ID)
-	if parseRoleIdErr != nil {
-		return diag.Errorf("%s", parseRoleIdErr)
-	}
-
-	var roleName = data.Get("name").(string)
-	var database = data.Get("database").(string)
-	var roleList []RoleReference
-	var privileges []Privilege
-
-	privilege := data.Get("privilege").(*schema.Set).List()
-	roles := data.Get("inherited_role").(*schema.Set).List()
-
-	roleMapErr := mapstructure.Decode(roles, &roleList)
-	if roleMapErr != nil {
-		return diag.Errorf("Error decoding map : %s ", roleMapErr)
-	}
-	privMapErr := mapstructure.Decode(privilege, &privileges)
-	if privMapErr != nil {
-		return diag.Errorf("Error decoding map : %s ", privMapErr)
-	}
-
-	dropRoleErr := dropRole(client, roleName, database)
-	if dropRoleErr != nil {
-		return diag.Errorf("Error deleting the role: %s ", dropRoleErr)
-	}
-
-	createRoleErr := createRole(client, role, roleList, privileges, database)
-	if createRoleErr != nil {
-		return diag.Errorf("Could not create the role  :  %s ", createRoleErr)
-	}
-
-	data.SetId(makeRoleId(role, database))
-	return resourceDatabaseRoleRead(ctx, data, i)
-}
-
-func resourceDatabaseRoleRead(ctx context.Context, data *schema.ResourceData, i interface{}) diag.Diagnostics {
-	var config = i.(*MongoDatabaseConfiguration)
-	client, connectionError := MongoClientInit(config)
-	if connectionError != nil {
-		return diag.Errorf("Error connecting to database : %s ", connectionError)
-	}
-
-	roleName, database, parseRoleIdErr := parseRoleId(data.State().ID)
-	if parseRoleIdErr != nil {
-		return diag.Errorf("%s", parseRoleIdErr)
-	}
-	role, decodeError := getRole(client, roleName, database)
-	if decodeError != nil {
-		return diag.Errorf("Error decoding role : %s ", decodeError)
-	}
-
-	writeRoleErr := writeRoleToData(data, role)
-	if writeRoleErr != nil {
-		return diag.Errorf("Error writing role : %s ", writeRoleErr)
-	}
-
-	return nil
+	return &role, nil
 }
 
 func writeRoleToData(data *schema.ResourceData, role *MongodbRole) error {
@@ -234,6 +141,104 @@ func writeRoleToData(data *schema.ResourceData, role *MongodbRole) error {
 		return err
 	}
 	data.SetId(makeRoleId(role.Role, role.Db))
+	return nil
+}
+
+func resourceDatabaseRoleCreate(ctx context.Context, data *schema.ResourceData, i interface{}) diag.Diagnostics {
+	var config = i.(*MongoDatabaseConfiguration)
+	client, connectionError := MongoClientInit(config)
+	if connectionError != nil {
+		return diag.Errorf("Error connecting to database : %s ", connectionError)
+	}
+
+	role, readRoleErr := readRoleFromData(data)
+	if readRoleErr != nil {
+		return diag.Errorf("Error reading role : %s ", readRoleErr)
+	}
+
+	createRoleErr := createRole(client, role)
+	if createRoleErr != nil {
+		return diag.Errorf("Could not create the role : %s ", createRoleErr)
+	}
+
+	data.SetId(makeRoleId(role.Name, role.Database))
+
+	return resourceDatabaseRoleRead(ctx, data, i)
+}
+
+func resourceDatabaseRoleDelete(ctx context.Context, data *schema.ResourceData, i interface{}) diag.Diagnostics {
+	var config = i.(*MongoDatabaseConfiguration)
+	client, connectionError := MongoClientInit(config)
+	if connectionError != nil {
+		return diag.Errorf("Error connecting to database : %s ", connectionError)
+	}
+
+	roleName, database, parseRoleIdErr := parseRoleId(data.State().ID)
+	if parseRoleIdErr != nil {
+		return diag.Errorf("%s", parseRoleIdErr)
+	}
+
+	dropRoleErr := dropRole(client, roleName, database)
+	if dropRoleErr != nil {
+		return diag.Errorf("Error deleting the role: %s ", dropRoleErr)
+	}
+
+	return nil
+}
+
+func resourceDatabaseRoleUpdate(ctx context.Context, data *schema.ResourceData, i interface{}) diag.Diagnostics {
+	var config = i.(*MongoDatabaseConfiguration)
+	client, connectionError := MongoClientInit(config)
+	if connectionError != nil {
+		return diag.Errorf("Error connecting to database : %s ", connectionError)
+	}
+
+	_, _, parseRoleIdErr := parseRoleId(data.State().ID)
+	if parseRoleIdErr != nil {
+		return diag.Errorf("%s", parseRoleIdErr)
+	}
+
+	role, readRoleErr := readRoleFromData(data)
+	if readRoleErr != nil {
+		return diag.Errorf("Error reading role : %s ", readRoleErr)
+	}
+
+	dropRoleErr := dropRole(client, role.Name, role.Database)
+	if dropRoleErr != nil {
+		return diag.Errorf("Error deleting the role: %s ", dropRoleErr)
+	}
+
+	createRoleErr := createRole(client, role)
+	if createRoleErr != nil {
+		return diag.Errorf("Could not create the role  :  %s ", createRoleErr)
+	}
+
+	data.SetId(makeRoleId(role.Name, role.Database))
+	return resourceDatabaseRoleRead(ctx, data, i)
+}
+
+func resourceDatabaseRoleRead(ctx context.Context, data *schema.ResourceData, i interface{}) diag.Diagnostics {
+	var config = i.(*MongoDatabaseConfiguration)
+	client, connectionError := MongoClientInit(config)
+	if connectionError != nil {
+		return diag.Errorf("Error connecting to database : %s ", connectionError)
+	}
+
+	roleName, database, parseRoleIdErr := parseRoleId(data.State().ID)
+	if parseRoleIdErr != nil {
+		return diag.Errorf("%s", parseRoleIdErr)
+	}
+
+	role, decodeError := getRole(client, roleName, database)
+	if decodeError != nil {
+		return diag.Errorf("Error decoding role : %s ", decodeError)
+	}
+
+	writeRoleErr := writeRoleToData(data, role)
+	if writeRoleErr != nil {
+		return diag.Errorf("Error writing role : %s ", writeRoleErr)
+	}
+
 	return nil
 }
 
