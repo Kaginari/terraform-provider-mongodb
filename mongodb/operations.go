@@ -144,9 +144,9 @@ func getRole(client *mongo.Client, roleName string, database string) (*MongodbRo
 }
 
 func createRole(client *mongo.Client, role string, roles []Role, privilege []PrivilegeDto, database string) error {
-	var privileges []Privilege
+	var privileges []MongodbPrivilege
 	for _, element := range privilege {
-		var prv Privilege
+		var prv MongodbPrivilege
 		prv.Resource = Resource{
 			Db:         element.Db,
 			Collection: element.Collection,
