@@ -31,7 +31,7 @@ func resourceDatabaseUser() *schema.Resource {
 			},
 			"password": {
 				Type:     schema.TypeString,
-				Required: true,
+				Optional: true,
 			},
 			"role": {
 				Type:     schema.TypeSet,
@@ -57,7 +57,7 @@ func resourceDatabaseUser() *schema.Resource {
 func readUserFromData(data *schema.ResourceData) (*User, error) {
 	userName := data.Get("name").(string)
 	database := data.Get("auth_database").(string)
-	userPassword := data.Get("password").(string)
+	password := data.Get("password").(string)
 	rolesData := data.Get("role").(*schema.Set).List()
 
 	var roles []RoleReference
@@ -66,10 +66,14 @@ func readUserFromData(data *schema.ResourceData) (*User, error) {
 		return nil, roleMapErr
 	}
 
+	if password == "" && database != "$external" {
+		return nil, fmt.Errorf("users without password allowed only for X509 certificate users that have to be in the $external database, but database %s was specified", database)
+	}
+
 	var user = User{
 		AuthDatabase: database,
 		Name:         userName,
-		Password:     userPassword,
+		Password:     password,
 		Roles:        roles,
 	}
 

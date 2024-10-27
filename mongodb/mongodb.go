@@ -50,11 +50,20 @@ func createUser(client *mongo.Client, user *User) error {
 		rolesValue = user.Roles
 	}
 
-	result := client.Database(user.AuthDatabase).RunCommand(context.Background(), bson.D{
+	var command bson.D = bson.D{
 		{Key: "createUser", Value: user.Name},
-		{Key: "pwd", Value: user.Password},
 		{Key: "roles", Value: rolesValue},
-	})
+	}
+
+	if user.Password != "" {
+		command = bson.D{
+			{Key: "createUser", Value: user.Name},
+			{Key: "pwd", Value: user.Password},
+			{Key: "roles", Value: rolesValue},
+		}
+	}
+
+	result := client.Database(user.AuthDatabase).RunCommand(context.Background(), command)
 
 	if result.Err() != nil {
 		return result.Err()
