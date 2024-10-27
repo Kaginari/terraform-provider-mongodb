@@ -142,7 +142,7 @@ func dropUser(client *mongo.Client, username string, database string) error {
 	return nil
 }
 
-func getRole(client *mongo.Client, roleName string, database string) (*MongodbRole, error) {
+func getRole(client *mongo.Client, roleName string, database string) (*Role, error) {
 	result := client.Database(database).RunCommand(context.Background(), bson.D{
 		{Key: "rolesInfo", Value: bson.D{{Key: "role", Value: roleName}, {Key: "db", Value: database}}},
 		{Key: "showPrivileges", Value: true},
@@ -157,7 +157,26 @@ func getRole(client *mongo.Client, roleName string, database string) (*MongodbRo
 		return nil, fmt.Errorf("Role %s.%s does not exist", database, roleName)
 	}
 
-	return &decodedResult.Roles[0], nil
+	mongodbRole := decodedResult.Roles[0]
+
+	roles := make([]RoleReference, len(mongodbRole.InheritedRoles))
+	for i, r := range mongodbRole.InheritedRoles {
+		roles[i] = RoleReference{Role: r.Role, Db: r.Db}
+	}
+
+	privileges := make([]Privilege, len(mongodbRole.Privileges))
+	for i, p := range mongodbRole.Privileges {
+		privileges[i] = Privilege{Collection: p.Resource.Collection, Db: p.Resource.Db, Actions: p.Actions}
+	}
+
+	role := Role{
+		Name:      mongodbRole.Role,
+		Database:  mongodbRole.Db,
+		Roles:     roles,
+		Privilege: privileges,
+	}
+
+	return &role, nil
 }
 
 func createRole(client *mongo.Client, role *Role) error {

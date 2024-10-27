@@ -105,22 +105,20 @@ func readRoleFromData(data *schema.ResourceData) (*Role, error) {
 	return &role, nil
 }
 
-func writeRoleToData(data *schema.ResourceData, role *MongodbRole) error {
-	inheritedRoles := make([]interface{}, len(role.InheritedRoles))
-
-	for i, s := range role.InheritedRoles {
+func writeRoleToData(data *schema.ResourceData, role *Role) error {
+	inheritedRoles := make([]interface{}, len(role.Roles))
+	for i, s := range role.Roles {
 		inheritedRoles[i] = map[string]interface{}{
 			"db":   s.Db,
 			"role": s.Role,
 		}
 	}
 
-	privileges := make([]interface{}, len(role.Privileges))
-
-	for i, s := range role.Privileges {
+	privileges := make([]interface{}, len(role.Privilege))
+	for i, s := range role.Privilege {
 		privileges[i] = map[string]interface{}{
-			"db":         s.Resource.Db,
-			"collection": s.Resource.Collection,
+			"db":         s.Db,
+			"collection": s.Collection,
 			"actions":    s.Actions,
 		}
 	}
@@ -132,15 +130,15 @@ func writeRoleToData(data *schema.ResourceData, role *MongodbRole) error {
 	if err != nil {
 		return err
 	}
-	err = data.Set("database", role.Db)
+	err = data.Set("database", role.Database)
 	if err != nil {
 		return err
 	}
-	err = data.Set("name", role.Role)
+	err = data.Set("name", role.Name)
 	if err != nil {
 		return err
 	}
-	data.SetId(makeRoleId(role.Role, role.Db))
+	data.SetId(makeRoleId(role.Name, role.Database))
 	return nil
 }
 
@@ -161,9 +159,12 @@ func resourceDatabaseRoleCreate(ctx context.Context, data *schema.ResourceData, 
 		return diag.Errorf("Could not create the role : %s ", createRoleErr)
 	}
 
-	data.SetId(makeRoleId(role.Name, role.Database))
+	writeRoleErr := writeRoleToData(data, role)
+	if writeRoleErr != nil {
+		return diag.Errorf("Error writing role : %s ", writeRoleErr)
+	}
 
-	return resourceDatabaseRoleRead(ctx, data, i)
+	return nil
 }
 
 func resourceDatabaseRoleDelete(ctx context.Context, data *schema.ResourceData, i interface{}) diag.Diagnostics {
@@ -213,8 +214,12 @@ func resourceDatabaseRoleUpdate(ctx context.Context, data *schema.ResourceData, 
 		return diag.Errorf("Could not create the role  :  %s ", createRoleErr)
 	}
 
-	data.SetId(makeRoleId(role.Name, role.Database))
-	return resourceDatabaseRoleRead(ctx, data, i)
+	writeRoleErr := writeRoleToData(data, role)
+	if writeRoleErr != nil {
+		return diag.Errorf("Error writing role : %s ", writeRoleErr)
+	}
+
+	return nil
 }
 
 func resourceDatabaseRoleRead(ctx context.Context, data *schema.ResourceData, i interface{}) diag.Diagnostics {
