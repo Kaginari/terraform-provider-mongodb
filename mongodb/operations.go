@@ -8,33 +8,29 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-type DbUser struct {
-	AuthDatabase string          `json:"auth_database"`
-	Name         string          `json:"name"`
-	Password     string          `json:"password"`
-	Roles        []RoleReference `json:"roles"`
+type User struct {
+	AuthDatabase string
+	Name         string
+	Password     string
+	Roles        []RoleReference
 }
 
 type RoleReference struct {
-	Role string `json:"role"`
-	Db   string `json:"db"`
-}
-
-func (role RoleReference) String() string {
-	return fmt.Sprintf("{ role : %s , db : %s }", role.Role, role.Db)
+	Role string
+	Db   string
 }
 
 type Role struct {
-	Name      string
-	Database  string
-	Roles     []RoleReference
-	Privilege []Privilege
+	Name       string
+	Database   string
+	Roles      []RoleReference
+	Privileges []Privilege
 }
 
 type Privilege struct {
-	Db         string   `json:"db"`
-	Collection string   `json:"collection"`
-	Actions    []string `json:"actions"`
+	Db         string
+	Collection string
+	Actions    []string
 }
 
 type MongodbPrivilege struct {
@@ -42,17 +38,9 @@ type MongodbPrivilege struct {
 	Actions  []string        `json:"actions"`
 }
 
-func (privilege MongodbPrivilege) String() string {
-	return fmt.Sprintf("{ resource : %s , actions : %s }", privilege.Resource, privilege.Actions)
-}
-
 type MongodbResource struct {
 	Db         string `json:"db"`
 	Collection string `json:"collection"`
-}
-
-func (resource MongodbResource) String() string {
-	return fmt.Sprintf(" { db : %s , collection : %s }", resource.Db, resource.Collection)
 }
 
 type MongodbRoleReference struct {
@@ -82,7 +70,7 @@ type MongodbRolesResult struct {
 	Roles []MongodbRole `json:"roles"`
 }
 
-func createUser(client *mongo.Client, user *DbUser) error {
+func createUser(client *mongo.Client, user *User) error {
 	var rolesValue interface{} = []bson.M{}
 	if len(user.Roles) != 0 {
 		rolesValue = user.Roles
@@ -100,7 +88,7 @@ func createUser(client *mongo.Client, user *DbUser) error {
 	return nil
 }
 
-func getUser(client *mongo.Client, username string, database string, password string) (*DbUser, error) {
+func getUser(client *mongo.Client, username string, database string, password string) (*User, error) {
 	result := client.Database(database).RunCommand(context.Background(), bson.D{{
 		Key: "usersInfo", Value: bson.D{
 			{Key: "user", Value: username},
@@ -124,7 +112,7 @@ func getUser(client *mongo.Client, username string, database string, password st
 		roles[i] = RoleReference{Role: r.Role, Db: r.Db}
 	}
 
-	user := DbUser{
+	user := User{
 		AuthDatabase: database,
 		Name:         username,
 		Password:     password,
@@ -170,10 +158,10 @@ func getRole(client *mongo.Client, roleName string, database string) (*Role, err
 	}
 
 	role := Role{
-		Name:      mongodbRole.Role,
-		Database:  mongodbRole.Db,
-		Roles:     roles,
-		Privilege: privileges,
+		Name:       mongodbRole.Role,
+		Database:   mongodbRole.Db,
+		Roles:      roles,
+		Privileges: privileges,
 	}
 
 	return &role, nil
@@ -181,7 +169,7 @@ func getRole(client *mongo.Client, roleName string, database string) (*Role, err
 
 func createRole(client *mongo.Client, role *Role) error {
 	var privilegesData []MongodbPrivilege
-	for _, element := range role.Privilege {
+	for _, element := range role.Privileges {
 		privilege := MongodbPrivilege{
 			Resource: MongodbResource{
 				Db:         element.Db,

@@ -54,7 +54,7 @@ func resourceDatabaseUser() *schema.Resource {
 	}
 }
 
-func readUserFromData(data *schema.ResourceData) (*DbUser, error) {
+func readUserFromData(data *schema.ResourceData) (*User, error) {
 	userName := data.Get("name").(string)
 	database := data.Get("auth_database").(string)
 	userPassword := data.Get("password").(string)
@@ -66,7 +66,7 @@ func readUserFromData(data *schema.ResourceData) (*DbUser, error) {
 		return nil, roleMapErr
 	}
 
-	var user = DbUser{
+	var user = User{
 		AuthDatabase: database,
 		Name:         userName,
 		Password:     userPassword,
@@ -76,7 +76,7 @@ func readUserFromData(data *schema.ResourceData) (*DbUser, error) {
 	return &user, nil
 }
 
-func writeUserToData(data *schema.ResourceData, user *DbUser) error {
+func writeUserToData(data *schema.ResourceData, user *User) error {
 	roles := make([]interface{}, len(user.Roles))
 	for i, s := range user.Roles {
 		roles[i] = map[string]interface{}{"db": s.Db, "role": s.Role}

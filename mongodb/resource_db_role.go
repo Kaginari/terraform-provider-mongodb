@@ -96,10 +96,10 @@ func readRoleFromData(data *schema.ResourceData) (*Role, error) {
 	}
 
 	role := Role{
-		Name:      roleName,
-		Database:  database,
-		Roles:     roleList,
-		Privilege: privileges,
+		Name:       roleName,
+		Database:   database,
+		Roles:      roleList,
+		Privileges: privileges,
 	}
 
 	return &role, nil
@@ -114,8 +114,8 @@ func writeRoleToData(data *schema.ResourceData, role *Role) error {
 		}
 	}
 
-	privileges := make([]interface{}, len(role.Privilege))
-	for i, s := range role.Privilege {
+	privileges := make([]interface{}, len(role.Privileges))
+	for i, s := range role.Privileges {
 		privileges[i] = map[string]interface{}{
 			"db":         s.Db,
 			"collection": s.Collection,
