@@ -77,6 +77,11 @@ func readUserFromData(data *schema.ResourceData) (*User, error) {
 }
 
 func writeUserToData(data *schema.ResourceData, user *User) error {
+	if user == nil {
+		data.SetId("")
+		return nil
+	}
+
 	roles := make([]interface{}, len(user.Roles))
 	for i, s := range user.Roles {
 		roles[i] = map[string]interface{}{"db": s.Db, "role": s.Role}

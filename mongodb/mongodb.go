@@ -2,36 +2,10 @@ package mongodb
 
 import (
 	"context"
-	"fmt"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 )
-
-type User struct {
-	AuthDatabase string
-	Name         string
-	Password     string
-	Roles        []RoleReference
-}
-
-type RoleReference struct {
-	Role string
-	Db   string
-}
-
-type Role struct {
-	Name       string
-	Database   string
-	Roles      []RoleReference
-	Privileges []Privilege
-}
-
-type Privilege struct {
-	Db         string
-	Collection string
-	Actions    []string
-}
 
 type MongodbPrivilege struct {
 	Resource MongodbResource `json:"resource"`
@@ -102,7 +76,8 @@ func getUser(client *mongo.Client, username string, database string, password st
 	}
 
 	if len(decodedResult.Users) == 0 {
-		return nil, fmt.Errorf("User %s.%s does not exist", database, username)
+		// The user does not exist, but this is not a error
+		return nil, nil
 	}
 
 	mongodbUser := decodedResult.Users[0]
@@ -142,7 +117,8 @@ func getRole(client *mongo.Client, roleName string, database string) (*Role, err
 	}
 
 	if len(decodedResult.Roles) == 0 {
-		return nil, fmt.Errorf("Role %s.%s does not exist", database, roleName)
+		// The role does not exist, but this is not a error
+		return nil, nil
 	}
 
 	mongodbRole := decodedResult.Roles[0]

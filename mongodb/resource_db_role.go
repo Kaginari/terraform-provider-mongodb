@@ -106,6 +106,11 @@ func readRoleFromData(data *schema.ResourceData) (*Role, error) {
 }
 
 func writeRoleToData(data *schema.ResourceData, role *Role) error {
+	if role == nil {
+		data.SetId("")
+		return nil
+	}
+
 	inheritedRoles := make([]interface{}, len(role.Roles))
 	for i, s := range role.Roles {
 		inheritedRoles[i] = map[string]interface{}{
