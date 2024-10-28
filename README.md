@@ -2,6 +2,13 @@
 
 This repository is a Terraform Mongodb for [Terraform](https://www.terraform.io).
 
+This provider is a fork of [Kaginari/terraform-provider-mongodb](https://github.com/Kaginari/terraform-provider-mongodb).
+
+Main changes of this provider compared to original provider are:
+- Support for X509 auth.
+- Fixes for state management in case of drifts (user removed outside of terraform).
+- Overall code refactoring for better code readability and maintenance.
+
 ### Requirements
 
 - [Terraform](https://www.terraform.io/downloads.html) >= 0.13
