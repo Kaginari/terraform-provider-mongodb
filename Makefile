@@ -48,13 +48,19 @@ documentdb-test:
 	cd examples && rm -rf .terraform
 	cd examples/documentDB && rm -rf .terraform && make init
 
+documentdb-test-plan:
+	rm -f ${TERRAFORM_PLUGINS_DIRECTORY}/terraform-provider-${NAME}
+	go build -o ${TERRAFORM_PLUGINS_DIRECTORY}/terraform-provider-${NAME}
+	cd examples && rm -rf .terraform
+	cd examples/documentDB && rm -rf .terraform && make init && make plan
+
 documentdb-test-apply:
 	rm -f ${TERRAFORM_PLUGINS_DIRECTORY}/terraform-provider-${NAME}
 	go build -o ${TERRAFORM_PLUGINS_DIRECTORY}/terraform-provider-${NAME}
 	cd examples && rm -rf .terraform
 	cd examples/documentDB && rm -rf .terraform && make init && make apply
 
-documentdb-test-apply:
+documentdb-test-destroy:
 	rm -f ${TERRAFORM_PLUGINS_DIRECTORY}/terraform-provider-${NAME}
 	go build -o ${TERRAFORM_PLUGINS_DIRECTORY}/terraform-provider-${NAME}
 	cd examples && rm -rf .terraform

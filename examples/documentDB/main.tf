@@ -1,6 +1,5 @@
 terraform {
   required_version = ">= 0.13"
-
   required_providers {
     mongodb = {
       source = "registry.terraform.io/Kaginari/mongodb"
@@ -8,6 +7,7 @@ terraform {
     }
   }
 }
+
 provider "mongodb" {
   host = "documentdb-test-terraform.cluster-ro-ctclcdufsrkx.eu-west-3.docdb.amazonaws.com"
   port = "27017"
@@ -17,6 +17,7 @@ provider "mongodb" {
   direct = true
   certificate = file(pathexpand("rds-combined-ca-bundle.pem"))
 }
+
 resource "mongodb_db_user" "user" {
   auth_database = "admin"
   name = "monta"
@@ -33,6 +34,23 @@ resource "mongodb_db_user" "user" {
     role = "readWrite"
     db =   "monta"
   }
+}
 
-
+# https://docs.aws.amazon.com/documentdb/latest/developerguide/iam-identity-auth.html#iam-identity-auth-get-started
+resource "mongodb_db_user" "passwordless_user" {
+  auth_database = "$external"
+  auth_mechanisms = ["MONGODB-AWS"]
+  name = "arn:aws:iam::123456789123:user/iamuser"
+  role {
+    role = "readAnyDatabase"
+    db =   "test"
+  }
+  role {
+    role = "readWrite"
+    db =   "local"
+  }
+  role {
+    role = "readWrite"
+    db =   "monta"
+  }
 }
