@@ -177,15 +177,25 @@ func (resource Resource) String() string {
 	return fmt.Sprintf(" { db : %s , collection : %s }", resource.Db, resource.Collection)
 }
 
-func createUser(client *mongo.Client, user DbUser, roles []Role, database string) error {
+func createUser(client *mongo.Client, user DbUser, roles []Role, database string, authMechanisms []string) error {
 	var result *mongo.SingleResult
-	if len(roles) != 0 {
-		result = client.Database(database).RunCommand(context.Background(), bson.D{{Key: "createUser", Value: user.Name},
-			{Key: "pwd", Value: user.Password}, {Key: "roles", Value: roles}})
-	} else {
-		result = client.Database(database).RunCommand(context.Background(), bson.D{{Key: "createUser", Value: user.Name},
-			{Key: "pwd", Value: user.Password}, {Key: "roles", Value: []bson.M{}}})
+	cmd := bson.D{
+		{Key: "createUser", Value: user.Name},
 	}
+
+	if len(roles) > 0 {
+		cmd = append(cmd, bson.E{Key: "roles", Value: roles})
+	}
+
+	if len(user.Password) != 0 {
+		cmd = append(cmd, bson.E{Key: "pwd", Value: user.Password})
+	}
+
+	if len(authMechanisms) > 0 {
+		cmd = append(cmd, bson.E{Key: "mechanisms", Value: authMechanisms})
+	}
+
+	result = client.Database(database).RunCommand(context.Background(), cmd)
 
 	if result.Err() != nil {
 		return result.Err()

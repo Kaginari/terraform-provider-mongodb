@@ -26,3 +26,12 @@ func validateDiagFunc(validateFunc func(interface{}, string) ([]string, []error)
 		return diags
 	}
 }
+
+func toStringSlice(v interface{}) []string {
+	raw := v.([]interface{})
+	out := make([]string, len(raw))
+	for i, val := range raw {
+		out[i] = val.(string)
+	}
+	return out
+}
