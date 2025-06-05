@@ -177,7 +177,7 @@ func (resource Resource) String() string {
 	return fmt.Sprintf(" { db : %s , collection : %s }", resource.Db, resource.Collection)
 }
 
-func createUser(client *mongo.Client, user DbUser, roles []Role, database string, authMechanisms []string) error {
+func createUser(client *mongo.Client, user DbUser, roles []Role, authMechanisms []interface{}, database string) error {
 	var result *mongo.SingleResult
 	cmd := bson.D{
 		{Key: "createUser", Value: user.Name},

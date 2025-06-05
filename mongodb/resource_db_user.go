@@ -34,7 +34,7 @@ func resourceDatabaseUser() *schema.Resource {
 				Optional: true,
 			},
 			"auth_mechanisms": {
-				Type:     schema.TypeList,
+				Type:     schema.TypeSet,
 				Optional: true,
 				Elem: &schema.Schema{
 					Type: schema.TypeString,
@@ -106,7 +106,7 @@ func resourceDatabaseUserUpdate(ctx context.Context, data *schema.ResourceData, 
 	var userName = data.Get("name").(string)
 	var database = data.Get("auth_database").(string)
 	var userPassword = data.Get("password").(string)
-	var authMechanisms = toStringSlice(data.Get("auth_mechanisms"))
+	var authMechanisms = data.Get("auth_mechanisms").(*schema.Set).List()
 
 	adminDB := client.Database(database)
 
@@ -125,7 +125,7 @@ func resourceDatabaseUserUpdate(ctx context.Context, data *schema.ResourceData, 
 		return diag.Errorf("Error decoding map : %s ", roleMapErr)
 	}
 
-	err2 := createUser(client, user, roleList, database, authMechanisms)
+	err2 := createUser(client, user, roleList, authMechanisms, database)
 	if err2 != nil {
 		return diag.Errorf("Could not create the user : %s ", err2)
 	}
@@ -192,7 +192,7 @@ func resourceDatabaseUserCreate(ctx context.Context, data *schema.ResourceData, 
 		Name:     userName,
 		Password: userPassword,
 	}
-	var authMechanisms = toStringSlice(data.Get("auth_mechanisms"))
+	var authMechanisms = data.Get("auth_mechanisms").(*schema.Set).List()
 
 	roles := data.Get("role").(*schema.Set).List()
 	roleMapErr := mapstructure.Decode(roles, &roleList)
@@ -200,7 +200,7 @@ func resourceDatabaseUserCreate(ctx context.Context, data *schema.ResourceData, 
 		return diag.Errorf("Error decoding map : %s ", roleMapErr)
 	}
 
-	err := createUser(client, user, roleList, database, authMechanisms)
+	err := createUser(client, user, roleList, authMechanisms, database)
 	if err != nil {
 		return diag.Errorf("Could not create the user : %s ", err)
 	}
