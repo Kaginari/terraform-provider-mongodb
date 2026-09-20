@@ -20,6 +20,14 @@ func resourceDatabaseUser() *schema.Resource {
 		Importer: &schema.ResourceImporter{
 			StateContext: schema.ImportStatePassthroughContext,
 		},
+		SchemaVersion: 1,
+		StateUpgraders: []schema.StateUpgrader{
+			{
+				Version: 0,
+				Type:    resourceDatabaseUserResourceV0().CoreConfigSchema().ImpliedType(),
+				Upgrade: resourceDatabaseUserUpgradeV0,
+			},
+		},
 		Schema: map[string]*schema.Schema{
 			"auth_database": {
 				Type:     schema.TypeString,
@@ -56,6 +64,71 @@ func resourceDatabaseUser() *schema.Resource {
 
 
 
+// resourceDatabaseUserResourceV0 is the schema shape prior to the "database/name" ID
+// migration (v0 IDs were base64("database.name")). It only needs to describe the schema
+// closely enough for StateUpgraders to decode the raw v0 state, so it mirrors the current
+// schema rather than being maintained as a historical snapshot.
+func resourceDatabaseUserResourceV0() *schema.Resource {
+	return &schema.Resource{
+		Schema: map[string]*schema.Schema{
+			"auth_database": {
+				Type:     schema.TypeString,
+				Required: true,
+			},
+			"name": {
+				Type:     schema.TypeString,
+				Required: true,
+			},
+			"password": {
+				Type:     schema.TypeString,
+				Required: true,
+			},
+			"role": {
+				Type:     schema.TypeSet,
+				Optional: true,
+				MaxItems: 25,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"db": {
+							Type:     schema.TypeString,
+							Optional: true,
+						},
+						"role": {
+							Type:     schema.TypeString,
+							Required: true,
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+// resourceDatabaseUserUpgradeV0 rewrites the base64("database.name") ID from schema v0 into
+// the plain "database/name" ID used from v1 onward, so the provider upgrade is invisible:
+// existing state is migrated in place on the next refresh/apply, with no forced replacement
+// and no manual `terraform state` surgery required from the user.
+func resourceDatabaseUserUpgradeV0(_ context.Context, rawState map[string]interface{}, _ interface{}) (map[string]interface{}, error) {
+	oldId, ok := rawState["id"].(string)
+	if !ok || oldId == "" {
+		return rawState, nil
+	}
+
+	decoded, errEncoding := base64.StdEncoding.DecodeString(oldId)
+	if errEncoding != nil {
+		// Already in the new plain format (or something else migrated it already); leave as-is.
+		return rawState, nil
+	}
+
+	parts := strings.SplitN(string(decoded), ".", 2)
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+		return rawState, fmt.Errorf("unexpected format of v0 ID (%s), expected base64(database.username)", oldId)
+	}
+
+	rawState["id"] = parts[0] + "/" + parts[1]
+	return rawState, nil
+}
+
 func resourceDatabaseUserDelete(ctx context.Context, data *schema.ResourceData, i interface{}) diag.Diagnostics {
 	var config = i.(*MongoDatabaseConfiguration)
 	client , connectionError := MongoClientInit(config)
@@ -63,16 +136,10 @@ func resourceDatabaseUserDelete(ctx context.Context, data *schema.ResourceData, 
 		return diag.Errorf("Error connecting to database : %s ", connectionError)
 	}
 	var stateId = data.State().ID
-	var database = data.Get("auth_database").(string)
-
-	id, errEncoding := base64.StdEncoding.DecodeString(stateId)
-	if errEncoding != nil {
-		return diag.Errorf("ID mismatch %s", errEncoding)
+	userName, database, err := resourceDatabaseUserParseId(stateId)
+	if err != nil {
+		return diag.Errorf("%s", err)
 	}
-
-	// StateID is a concatenation of database and username. We only use the username here.
-	splitId := strings.Split(string(id), ".")
-	userName := splitId[1]
 
 	adminDB := client.Database(database)
 
@@ -91,9 +158,9 @@ func resourceDatabaseUserUpdate(ctx context.Context, data *schema.ResourceData, 
 		return diag.Errorf("Error connecting to database : %s ", connectionError)
 	}
 	var stateId = data.State().ID
-	_, errEncoding := base64.StdEncoding.DecodeString(stateId)
-	if errEncoding != nil {
-		return diag.Errorf("ID mismatch %s", errEncoding)
+	_, _, err := resourceDatabaseUserParseId(stateId)
+	if err != nil {
+		return diag.Errorf("%s", err)
 	}
 
 	var userName = data.Get("name").(string)
@@ -121,9 +188,7 @@ func resourceDatabaseUserUpdate(ctx context.Context, data *schema.ResourceData, 
 		return diag.Errorf("Could not create the user : %s ", err2)
 	}
 
-	newId := database+"."+userName
-	encoded := base64.StdEncoding.EncodeToString([]byte(newId))
-	data.SetId(encoded)
+	data.SetId(database + "/" + userName)
 	return resourceDatabaseUserRead(ctx, data, i)
 }
 
@@ -192,21 +257,14 @@ func resourceDatabaseUserCreate(ctx context.Context, data *schema.ResourceData, 
 	if err != nil {
 		return diag.Errorf("Could not create the user : %s ", err)
 	}
-	str := database+"."+userName
-	encoded := base64.StdEncoding.EncodeToString([]byte(str))
-	data.SetId(encoded)
+	data.SetId(database + "/" + userName)
 	return resourceDatabaseUserRead(ctx, data, i)
 }
 
 func resourceDatabaseUserParseId(id string) (string, string, error){
-	result , errEncoding := base64.StdEncoding.DecodeString(id)
-
-	if errEncoding != nil {
-		return "", "", fmt.Errorf("unexpected format of ID Error : %s", errEncoding)
-	}
-	parts := strings.SplitN(string(result), ".", 2)
+	parts := strings.SplitN(id, "/", 2)
 	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
-		return "", "", fmt.Errorf("unexpected format of ID (%s), expected attribute1.attribute2", id)
+		return "", "", fmt.Errorf("unexpected format of ID (%s), expected database/username", id)
 	}
 
 	database := parts[0]
