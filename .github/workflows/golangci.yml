@@ -4,7 +4,7 @@ on:
     tags:
       - v*
     branches:
-      - master
+      - main
   pull_request:
 
 jobs:
@@ -12,18 +12,25 @@ jobs:
     name: golangci-lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v2
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
         with:
-          version: v1.30
-          skip-go-installation: true
+          go-version-file: go.mod
+      - name: Download Go modules
+        run: go mod download
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: v1.61.0
 
   go_test:
     name: golang test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
       - name: Download Go modules
         run: go mod download
       - name: Run Test
