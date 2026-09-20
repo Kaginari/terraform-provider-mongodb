@@ -30,18 +30,24 @@ func Provider() *schema.Provider {
 				DefaultFunc: schema.EnvDefaultFunc("MONGODB_CERT", ""),
 				Description: "PEM-encoded content of Mongodb host CA certificate",
 			},
+			"certificate_key_file": {
+				Type:        schema.TypeString,
+				Optional:    true,
+				DefaultFunc: schema.EnvDefaultFunc("MONGODB_CERT_KEY_FILE", ""),
+				Description: "PEM-encoded content of the client certificate and private key, combined in one value (as returned by concatenating both PEM blocks). When set, the provider authenticates using MongoDB's X.509 client-certificate mechanism instead of username/password, and `username`/`password` may be omitted.",
+			},
 
 			"username": {
 				Type:        schema.TypeString,
-				Required:    true,
+				Optional:    true,
 				DefaultFunc: schema.EnvDefaultFunc("MONGO_USR", nil),
-				Description: "The mongodb user",
+				Description: "The mongodb user. Not required when `certificate_key_file` is set (X.509 client-certificate authentication).",
 			},
 			"password": {
 				Type:        schema.TypeString,
-				Required:    true,
+				Optional:    true,
 				DefaultFunc: schema.EnvDefaultFunc("MONGO_PWD", nil),
-				Description: "The mongodb password",
+				Description: "The mongodb password. Not required when `certificate_key_file` is set (X.509 client-certificate authentication).",
 			},
 			"auth_database": {
 				Type:        schema.TypeString,
@@ -115,6 +121,7 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 		Ssl:                d.Get("ssl").(bool),
 		ReplicaSet:         d.Get("replica_set").(string),
 		Certificate:        d.Get("certificate").(string),
+		CertificateKeyFile: d.Get("certificate_key_file").(string),
 		InsecureSkipVerify: d.Get("insecure_skip_verify").(bool),
 		Direct:             d.Get("direct").(bool),
 		RetryWrites:        d.Get("retrywrites").(bool),
