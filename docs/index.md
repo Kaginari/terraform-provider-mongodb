@@ -40,6 +40,22 @@ provider "mongodb" {
 }
 ```
 
+## Example Usage with X.509 client-certificate authentication
+
+```hcl
+# Configure the MongoDB Provider
+provider "mongodb" {
+  host          = "127.0.0.1"
+  port          = "27017"
+  auth_database = "$external"
+  ssl           = true
+  # -> the client certificate's subject DN is the identity; no username/password needed
+  certificate_key_file = file(pathexpand("path/to/client.pem"))
+  # -> optionally pin the server CA too, same as the plain-TLS example above
+  certificate           = file(pathexpand("path/to/ca.pem"))
+}
+```
+
 ### Environment variables
 
 You can also provide your credentials via the environment variables, MONGO_HOST, MONGO_PORT, MONGO_USR, and MONGO_PWD respectively:
@@ -93,13 +109,13 @@ arguments](https://www.terraform.io/docs/configuration/providers.html) (e.g.
   provided, but it can also be sourced from the `MONGO_PORT`
   environment variable.
 
-* `certificate` - (Optional) Path to a directory with certificate files  for connecting to the Docker host via TLS. I. If the path is blank, the MONGODB_CERT will also be checked.
+* `certificate` - (Optional) PEM-encoded content of the MongoDB host's CA certificate, for connecting via TLS. If blank, the `MONGODB_CERT` environment variable is also checked.
 
-* `username ` - (Optional) Specifies a username with which to authenticate to the MongoDB database. It must be
-  provided, but it can also be sourced from the `MONGO_USR`
+* `certificate_key_file` - (Optional) PEM-encoded content of the client certificate and private key, combined in one value, for MongoDB's [X.509 client-certificate authentication](https://www.mongodb.com/docs/manual/core/security-x.509/). When set, `username`/`password` are not sent — the certificate's subject DN is the identity. If blank, the `MONGODB_CERT_KEY_FILE` environment variable is also checked.
+
+* `username ` - (Optional) Specifies a username with which to authenticate to the MongoDB database. Not needed when `certificate_key_file` is set. Can also be sourced from the `MONGO_USR`
   environment variable.
-* `password  ` - (Optional) Specifies a password with which to authenticate to the MongoDB database. It must be
-  provided, but it can also be sourced from the `MONGO_PWD`
+* `password  ` - (Optional) Specifies a password with which to authenticate to the MongoDB database. Not needed when `certificate_key_file` is set. Can also be sourced from the `MONGO_PWD`
   environment variable.
 * `auth_database   ` - (Required) Specifies the authentication database where the specified `username` has been created.
 * `ssl   ` - (Optional) `default = false `set it to true to connect to a deployment using TLS/SSL with SCRAM authentication.

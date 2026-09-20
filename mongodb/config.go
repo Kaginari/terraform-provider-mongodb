@@ -26,6 +26,7 @@ type ClientConfig struct {
 	ReplicaSet         string
 	RetryWrites        bool
 	Certificate        string
+	CertificateKeyFile string
 	Direct             bool
 	Proxy              string
 }
@@ -92,7 +93,27 @@ func addArgs(arguments string, newArg string) string {
 }
 
 func (c *ClientConfig) MongoClient() (*mongo.Client, error) {
+	dialer, dialerErr := proxyDialer(c)
+	if dialerErr != nil {
+		return nil, dialerErr
+	}
 
+	opts, err := c.clientOptions(dialer)
+	if err != nil {
+		return nil, err
+	}
+
+	return mongo.NewClient(opts)
+}
+
+// clientOptions builds the full *options.ClientOptions from the ClientConfig. Split out from
+// MongoClient so the credential/TLS wiring can be unit-tested without a real network dialer or
+// mongo.NewClient's own validation - a previous version of this logic built a *ClientOptions,
+// called SetAuth on it, and then discarded the result in favor of a second, freshly-built one
+// that never got the credential, so the auth mechanism it configured silently never took
+// effect. Every credential path here is exercised by config_test.go against this function's
+// actual return value, not just against whether MongoClient() returns an error.
+func (c *ClientConfig) clientOptions(dialer options.ContextDialer) (*options.ClientOptions, error) {
 	var verify = false
 	var arguments = ""
 
@@ -112,11 +133,6 @@ func (c *ClientConfig) MongoClient() (*mongo.Client, error) {
 
 	var uri = "mongodb://" + c.Host + ":" + c.Port + arguments
 
-	dialer, dialerErr := proxyDialer(c)
-
-	if dialerErr != nil {
-		return nil, dialerErr
-	}
 	/*
 		@Since: v0.0.9
 		verify certificate
@@ -124,29 +140,39 @@ func (c *ClientConfig) MongoClient() (*mongo.Client, error) {
 	if c.InsecureSkipVerify {
 		verify = true
 	}
+
+	opts := options.Client().ApplyURI(uri).SetDialer(dialer)
+
+	/*
+		@Since: v0.1.8
+		MONGODB-X509 client-certificate authentication: the certificate's subject DN is the
+		identity, so no username/password is sent. Takes precedence over username/password
+		when both happen to be set.
+	*/
+	if c.CertificateKeyFile != "" {
+		opts = opts.SetAuth(options.Credential{AuthMechanism: "MONGODB-X509"})
+	} else {
+		opts = opts.SetAuth(options.Credential{
+			AuthSource: c.DB, Username: c.Username, Password: c.Password,
+		})
+	}
+
 	/*
 		@Since: v0.0.7
 		add certificate support for documentDB
 	*/
-	if c.Certificate != "" {
-		tlsConfig, err := getTLSConfigWithAllServerCertificates([]byte(c.Certificate), verify)
+	if c.Certificate != "" || c.CertificateKeyFile != "" {
+		tlsConfig, err := getTLSConfigWithAllServerCertificates([]byte(c.Certificate), []byte(c.CertificateKeyFile), verify)
 		if err != nil {
 			return nil, err
 		}
-		mongoClient, err := mongo.NewClient(options.Client().ApplyURI(uri).SetAuth(options.Credential{
-			AuthSource: c.DB, Username: c.Username, Password: c.Password,
-		}).SetTLSConfig(tlsConfig).SetDialer(dialer))
-
-		return mongoClient, err
+		opts = opts.SetTLSConfig(tlsConfig)
 	}
 
-	client, err := mongo.NewClient(options.Client().ApplyURI(uri).SetAuth(options.Credential{
-		AuthSource: c.DB, Username: c.Username, Password: c.Password,
-	}).SetDialer(dialer))
-	return client, err
+	return opts, nil
 }
 
-func getTLSConfigWithAllServerCertificates(ca []byte, verify bool) (*tls.Config, error) {
+func getTLSConfigWithAllServerCertificates(ca []byte, clientCertKeyPEM []byte, verify bool) (*tls.Config, error) {
 	/* As of version 1.2.1, the MongoDB Go Driver will only use the first CA server certificate found in sslcertificateauthorityfile.
 	   The code below addresses this limitation by manually appending all server certificates found in sslcertificateauthorityfile
 	   to a custom TLS configuration used during client creation. */
@@ -154,11 +180,29 @@ func getTLSConfigWithAllServerCertificates(ca []byte, verify bool) (*tls.Config,
 	tlsConfig := new(tls.Config)
 
 	tlsConfig.InsecureSkipVerify = verify
-	tlsConfig.RootCAs = x509.NewCertPool()
-	ok := tlsConfig.RootCAs.AppendCertsFromPEM(ca)
 
-	if !ok {
-		return tlsConfig, errors.New("Failed parsing pem file")
+	if len(ca) > 0 {
+		tlsConfig.RootCAs = x509.NewCertPool()
+		ok := tlsConfig.RootCAs.AppendCertsFromPEM(ca)
+
+		if !ok {
+			return tlsConfig, errors.New("Failed parsing pem file")
+		}
+	}
+
+	/*
+		@Since: v0.1.8
+		Client certificate + key for MONGODB-X509 auth, combined in one PEM value (mirrors
+		how MongoDB's own docs distribute a single --tlsCertificateKeyFile). tls.X509KeyPair
+		scans each argument for its own block type, so passing the same content twice is the
+		documented way to parse a combined cert+key PEM.
+	*/
+	if len(clientCertKeyPEM) > 0 {
+		clientCert, err := tls.X509KeyPair(clientCertKeyPEM, clientCertKeyPEM)
+		if err != nil {
+			return tlsConfig, fmt.Errorf("failed parsing client certificate/key pem file: %w", err)
+		}
+		tlsConfig.Certificates = []tls.Certificate{clientCert}
 	}
 
 	return tlsConfig, nil
