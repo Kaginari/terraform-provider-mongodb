@@ -49,11 +49,11 @@ resource "mongodb_db_user" "user_with_custom role" {
 ```
 ## Argument Reference
 
-* `auth_database` - (Required) Database against which Mongo authenticates the user. A user must provide both a username and authentication database to log into MongoDB.
+* `auth_database` - (Required, Forces new resource) Database against which Mongo authenticates the user. A user must provide both a username and authentication database to log into MongoDB. MongoDB has no command to move an existing user to a different authentication database, so changing this destroys and recreates the resource.
 * `role` - (optional) List of user’s roles and the databases / collections on which the roles apply. A role allows the user to perform particular actions on the specified database. A role on the admin database can include privileges that apply to the other databases as well. See [Role](#role) below for more details.
 
-* `name` - (Required) Username for authenticating to MongoDB.
-* `password` - (Required) User's initial password. A value is required to create the database user, however the argument but may be removed from your Terraform configuration after user creation without impacting the user, password or Terraform management. 
+* `name` - (Required, Forces new resource) Username for authenticating to MongoDB. MongoDB has no user-rename command, so changing this destroys and recreates the resource.
+* `password` - (Required) User's initial password. A value is required to create the database user, however the argument but may be removed from your Terraform configuration after user creation without impacting the user, password or Terraform management. Updating this (or `role`) updates the existing user in place via MongoDB's `updateUser` command; it does not drop and recreate the user.
 
 ~> **IMPORTANT:** --- Passwords may show up in Terraform related logs and it will be stored in the Terraform state file as plain-text. Password can be changed after creation using your preferred method, e.g. via the MongoDB Shell, to ensure security.  If you do change management of the password to outside of Terraform be sure to remove the argument from the Terraform configuration so it is not inadvertently updated to the original password.
 
@@ -72,12 +72,10 @@ Block mapping a user's role to a database / collection. A role allows the user t
 
 ## Import
 
-Mongodb users can be imported using the hex encoded id, e.g. for a user named `user_test` and his database id `test_db` :
+Mongodb users can be imported using `<auth_database>/<name>`, e.g. for a user named `user_test` in database `test_db`:
 
 ```sh
-$ printf '%s' "test_db.user_test" | base64
-## this is the output of the command above it will encode db.username to HEX 
-dGVzdF9kYi51c2VyX3Rlc3Q=
-
-$ terraform import mongodb_db_user.example_user  dGVzdF9kYi51c2VyX3Rlc3Q=
+$ terraform import mongodb_db_user.example_user test_db/user_test
 ```
+
+-> **NOTE:** Prior to `v1` of this resource's state schema, the ID was `base64("<auth_database>.<name>")`. Existing state is migrated to the plain `<auth_database>/<name>` form automatically on the first `plan`/`apply` after upgrading — no manual `terraform state` changes are needed.
