@@ -1,0 +1,6 @@
+Separately from anything you just fixed: there's a usability gap in this provider around
+connection behavior -- one hardcoded timing value that a real deployment might need to tune
+isn't exposed to users at all, it's just a magic number baked into the code. Find it and make
+it configurable the way comparable provider-level settings already are (a new schema field,
+wired through to where the value is actually used). Make the code change directly, don't just
+describe it. When done, state what you changed.

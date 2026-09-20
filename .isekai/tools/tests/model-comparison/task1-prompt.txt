@@ -1,0 +1,6 @@
+There is a portability bug in this codebase: one CRUD function assumes a MongoDB resource's
+auth-related data always lives in a fixed, hardcoded database, when it should use that
+resource's own configured database instead. This exact class of bug has already been found and
+fixed once elsewhere in this codebase -- use that existing fix as your template. Find the
+remaining occurrence and fix it directly in the code (don't just describe it, actually edit the
+file). When done, state which function you changed and how.
