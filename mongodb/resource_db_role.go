@@ -20,6 +20,14 @@ func resourceDatabaseRole() *schema.Resource {
 		Importer: &schema.ResourceImporter{
 			StateContext: schema.ImportStatePassthroughContext,
 		},
+		SchemaVersion: 1,
+		StateUpgraders: []schema.StateUpgrader{
+			{
+				Version: 0,
+				Type:    resourceDatabaseRoleResourceV0().CoreConfigSchema().ImpliedType(),
+				Upgrade: resourceDatabaseRoleUpgradeV0,
+			},
+		},
 		Schema: map[string]*schema.Schema{
 			"database": {
 				Type:     schema.TypeString,
@@ -83,6 +91,92 @@ func resourceDatabaseRole() *schema.Resource {
 	}
 }
 
+// resourceDatabaseRoleResourceV0 is the schema shape prior to the "database/name" ID
+// migration (v0 IDs were base64("database.name")). It only needs to describe the schema
+// closely enough for StateUpgraders to decode the raw v0 state, so it mirrors the current
+// schema rather than being maintained as a historical snapshot.
+func resourceDatabaseRoleResourceV0() *schema.Resource {
+	return &schema.Resource{
+		Schema: map[string]*schema.Schema{
+			"database": {
+				Type:     schema.TypeString,
+				Optional: true,
+				Default:  "admin",
+			},
+			"name": {
+				Type:     schema.TypeString,
+				Required: true,
+			},
+			"privilege": {
+				Type:     schema.TypeSet,
+				Optional: true,
+				MaxItems: 10,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"db": {
+							Type:     schema.TypeString,
+							Optional: true,
+						},
+						"collection": {
+							Type:     schema.TypeString,
+							Optional: true,
+						},
+						"actions": {
+							Type:     schema.TypeList,
+							Optional: true,
+							Elem: &schema.Schema{
+								Type: schema.TypeString,
+							},
+						},
+					},
+				},
+			},
+			"inherited_role": {
+				Type:     schema.TypeSet,
+				Optional: true,
+				MaxItems: 2,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"db": {
+							Type:     schema.TypeString,
+							Optional: true,
+						},
+						"role": {
+							Type:     schema.TypeString,
+							Required: true,
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+// resourceDatabaseRoleUpgradeV0 rewrites the base64("database.name") ID from schema v0 into
+// the plain "database/name" ID used from v1 onward, so the provider upgrade is invisible:
+// existing state is migrated in place on the next refresh/apply, with no forced replacement
+// and no manual `terraform state` surgery required from the user.
+func resourceDatabaseRoleUpgradeV0(_ context.Context, rawState map[string]interface{}, _ interface{}) (map[string]interface{}, error) {
+	oldId, ok := rawState["id"].(string)
+	if !ok || oldId == "" {
+		return rawState, nil
+	}
+
+	decoded, errEncoding := base64.StdEncoding.DecodeString(oldId)
+	if errEncoding != nil {
+		// Already in the new plain format (or something else migrated it already); leave as-is.
+		return rawState, nil
+	}
+
+	parts := strings.SplitN(string(decoded), ".", 2)
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+		return rawState, fmt.Errorf("unexpected format of v0 ID (%s), expected base64(database.roleName)", oldId)
+	}
+
+	rawState["id"] = parts[0] + "/" + parts[1]
+	return rawState, nil
+}
+
 func resourceDatabaseRoleCreate(ctx context.Context, data *schema.ResourceData, i interface{}) diag.Diagnostics {
 	var config = i.(*MongoDatabaseConfiguration)
 	client , connectionError := MongoClientInit(config)
@@ -112,9 +206,7 @@ func resourceDatabaseRoleCreate(ctx context.Context, data *schema.ResourceData, 
 	if err != nil {
 		return diag.Errorf("Could not create the role : %s ", err)
 	}
-	str := database+"."+role
-	encoded := base64.StdEncoding.EncodeToString([]byte(str))
-	data.SetId(encoded)
+	data.SetId(database + "/" + role)
 	return resourceDatabaseRoleRead(ctx, data, i)
 }
 
@@ -179,6 +271,8 @@ func resourceDatabaseRoleUpdate(ctx context.Context, data *schema.ResourceData, 
 		return diag.Errorf("Could not update the role : %s ", err2)
 	}
 
+	// "name" and "database" are ForceNew, so the ID (database/name) cannot have changed -
+	// no need to re-set it here.
 	return resourceDatabaseRoleRead(ctx, data, i)
 }
 
@@ -245,14 +339,9 @@ func resourceDatabaseRoleRead(ctx context.Context, data *schema.ResourceData, i 
 }
 
 func resourceDatabaseRoleParseId(id string) (string, string, error) {
-	result , errEncoding := base64.StdEncoding.DecodeString(id)
-
-	if errEncoding != nil {
-		return "", "", fmt.Errorf("unexpected format of ID Error : %s", errEncoding)
-	}
-	parts := strings.SplitN(string(result), ".", 2)
+	parts := strings.SplitN(id, "/", 2)
 	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
-		return "", "", fmt.Errorf("unexpected format of ID (%s), expected database.roleName", id)
+		return "", "", fmt.Errorf("unexpected format of ID (%s), expected database/roleName", id)
 	}
 
 	database := parts[0]
