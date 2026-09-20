@@ -17,26 +17,23 @@ provider "mongodb" {
   username = "root"
   password = "root"
   auth_database = "admin"
-  ssl = true
+  tls = true
+  ca_file = "ca.pem"
+  certificate_key_file = "cert_key.pem"
   replica_set = "replica-set" #optional
   retrywrites = false # default true
   direct = true // default false
   proxy = "socks5://myproxy:8080" // Optional
-  
 }
 ```
 
-## Example Usage with ssl
+## Example Usage with tls
 
 ```hcl
 # Configure the MongoDB Provider
 provider "mongodb" {
-
-  insecure_skip_verify = true  # default false (set to true to ignore hostname verification) 
-  # -> specify certificate path
-  certificate = file(pathexpand("path/to/certificate/ca.pem"))
-
-  
+  ca_file = "ca.pem"
+  certificate_key_file = "cert_key.pem"
 }
 ```
 
@@ -73,10 +70,9 @@ provider "mongodb" {
   username = "root"
   password = "root"
   auth_database = "admin"
-  ssl = true
-  # -> specify either
-  certificate = pathexpand("~/.mongodb/ca.pem")
-
+  tls = true
+  ca_file = "ca.pem"
+  certificate_key_file = "cert_key.pem"
   }
 ```
 ## Argument Reference
@@ -93,7 +89,9 @@ arguments](https://www.terraform.io/docs/configuration/providers.html) (e.g.
   provided, but it can also be sourced from the `MONGO_PORT`
   environment variable.
 
-* `certificate` - (Optional) Path to a directory with certificate files  for connecting to the Docker host via TLS. I. If the path is blank, the MONGODB_CERT will also be checked.
+* `certificate_key_file` - (Optional) PEM file containing client private key and certificate  for connecting via TLS. I. If the path is blank, the MONGODB_CA_FILE will also be checked.
+
+* `ca_file` - (Optional) CA certificate(s) file for connecting via TLS. If the path is blank, the MONGODB_CERT_KEY_FILE will also be checked.
 
 * `username ` - (Optional) Specifies a username with which to authenticate to the MongoDB database. It must be
   provided, but it can also be sourced from the `MONGO_USR`
@@ -102,7 +100,7 @@ arguments](https://www.terraform.io/docs/configuration/providers.html) (e.g.
   provided, but it can also be sourced from the `MONGO_PWD`
   environment variable.
 * `auth_database   ` - (Required) Specifies the authentication database where the specified `username` has been created.
-* `ssl   ` - (Optional) `default = false `set it to true to connect to a deployment using TLS/SSL with SCRAM authentication.
+* `tls   ` - (Optional) `default = false `set it to true to connect to a deployment using TLS with SCRAM authentication.
 * `retrywrites   ` - (Optional) `default = true `Retryable writes allow MongoDB drivers to automatically retry certain write operations a single time if they encounter network errors, or if they cannot find a healthy primary in the replica sets or sharded cluster.
 * `direct   ` - (Optional) `default = false ` determine if a direct connection is needed..
 * `proxy   ` - (Optional) `default = "" ` determine if connecting via a SOCKS5 proxy is needed, it can also be sourced from the `ALL_PROXY` or `all_proxy` environment variable.

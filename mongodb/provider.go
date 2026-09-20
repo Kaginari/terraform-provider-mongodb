@@ -2,11 +2,12 @@ package mongodb
 
 import (
 	"context"
+	"regexp"
+	"time"
+
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
-	"regexp"
-	"time"
 )
 
 func Provider() *schema.Provider {
@@ -24,11 +25,17 @@ func Provider() *schema.Provider {
 				DefaultFunc: schema.EnvDefaultFunc("MONGO_PORT", "27017"),
 				Description: "The mongodb server port",
 			},
-			"certificate": {
+			"ca_file": {
 				Type:        schema.TypeString,
 				Optional:    true,
-				DefaultFunc: schema.EnvDefaultFunc("MONGODB_CERT", ""),
+				DefaultFunc: schema.EnvDefaultFunc("MONGODB_CA_FILE", ""),
 				Description: "PEM-encoded content of Mongodb host CA certificate",
+			},
+			"certificate_key_file": {
+				Type:        schema.TypeString,
+				Optional:    true,
+				DefaultFunc: schema.EnvDefaultFunc("MONGODB_CERT_KEY_FILE", ""),
+				Description: "PEM-encoded content of client certificate and key",
 			},
 
 			"username": {
@@ -55,17 +62,11 @@ func Provider() *schema.Provider {
 				Default:     "",
 				Description: "The mongodb replica set",
 			},
-			"insecure_skip_verify": {
+			"tls": {
 				Type:        schema.TypeBool,
 				Optional:    true,
 				Default:     false,
-				Description: "ignore hostname verification",
-			},
-			"ssl": {
-				Type:        schema.TypeBool,
-				Optional:    true,
-				Default:     false,
-				Description: "ssl activation",
+				Description: "tls activation",
 			},
 			"direct": {
 				Type:        schema.TypeBool,
@@ -86,7 +87,7 @@ func Provider() *schema.Provider {
 					"ALL_PROXY",
 					"all_proxy",
 				}, nil),
-				ValidateDiagFunc: validateDiagFunc(validation.StringMatch(regexp.MustCompile("^socks5h?://.*:\\d+$"), "The proxy URL is not a valid socks url.")),
+				ValidateDiagFunc: validateDiagFunc(validation.StringMatch(regexp.MustCompile(`^socks5h?://.*:\\d+$`), "The proxy URL is not a valid socks url.")),
 			},
 		},
 		ResourcesMap: map[string]*schema.Resource{
@@ -112,10 +113,10 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 		Username:           d.Get("username").(string),
 		Password:           d.Get("password").(string),
 		DB:                 d.Get("auth_database").(string),
-		Ssl:                d.Get("ssl").(bool),
+		TLS:                d.Get("tls").(bool),
 		ReplicaSet:         d.Get("replica_set").(string),
-		Certificate:        d.Get("certificate").(string),
-		InsecureSkipVerify: d.Get("insecure_skip_verify").(bool),
+		CAFile:             d.Get("ca_file").(string),
+		CertificateKeyFile: d.Get("certificate_key_file").(string),
 		Direct:             d.Get("direct").(bool),
 		RetryWrites:        d.Get("retrywrites").(bool),
 		Proxy:              d.Get("proxy").(string),
