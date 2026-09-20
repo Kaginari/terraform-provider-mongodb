@@ -33,10 +33,16 @@ func resourceDatabaseRole() *schema.Resource {
 				Type:     schema.TypeString,
 				Optional: true,
 				Default: "admin",
+				// MongoDB's updateRole command cannot move a role to a different
+				// database - that's a different role identity. Force a create/destroy
+				// instead of silently targeting the wrong role on update.
+				ForceNew: true,
 			},
 			"name": {
 				Type:     schema.TypeString,
 				Required: true,
+				// MongoDB has no role-rename command; a name change is a new identity.
+				ForceNew: true,
 			},
 			"privilege": {
 				Type:     schema.TypeSet,
@@ -235,17 +241,10 @@ func resourceDatabaseRoleUpdate(ctx context.Context, data *schema.ResourceData, 
 	}
 	var role = data.Get("name").(string)
 	var stateId = data.State().ID
-	roleName, database , err := resourceDatabaseRoleParseId(stateId)
+	_, database , err := resourceDatabaseRoleParseId(stateId)
 
 	if err != nil {
 		return diag.Errorf("%s",err)
-	}
-
-	db := client.Database(database)
-	result := db.RunCommand(context.Background(), bson.D{{Key: "dropRole", Value: roleName}})
-
-	if result.Err() != nil {
-		return diag.Errorf("%s", result.Err())
 	}
 
 	var roleList []Role
@@ -263,13 +262,17 @@ func resourceDatabaseRoleUpdate(ctx context.Context, data *schema.ResourceData, 
 		return diag.Errorf("Error decoding map : %s ", privMapErr)
 	}
 
-	err2 := createRole(client, role, roleList, privileges, database)
+	// "name" and "database" are ForceNew, so this always updates the same role identity
+	// in place (privileges/inherited roles) rather than dropping and recreating it, which
+	// used to revoke the role from every principal holding it, even momentarily.
+	err2 := updateRole(client, role, roleList, privileges, database)
 
 	if err2 != nil {
-		return diag.Errorf("Could not create the role  :  %s ", err)
+		return diag.Errorf("Could not update the role : %s ", err2)
 	}
-	data.SetId(database + "/" + role)
 
+	// "name" and "database" are ForceNew, so the ID (database/name) cannot have changed -
+	// no need to re-set it here.
 	return resourceDatabaseRoleRead(ctx, data, i)
 }
 
@@ -290,7 +293,11 @@ func resourceDatabaseRoleRead(ctx context.Context, data *schema.ResourceData, i 
 		return diag.Errorf("Error decoding role : %s ", err)
 	}
 	if len(result.Roles) == 0 {
-		return diag.Errorf("Role does not exist")
+		// The role is gone from MongoDB (e.g. deleted out of band, or the cluster was
+		// recreated). Clear the ID instead of erroring so Terraform treats it as absent
+		// and offers to recreate it, rather than getting permanently stuck.
+		data.SetId("")
+		return nil
 	}
 	inheritedRoles := make([]interface{}, len(result.Roles[0].InheritedRoles))
 

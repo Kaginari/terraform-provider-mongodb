@@ -193,6 +193,22 @@ func createUser(client *mongo.Client, user DbUser, roles []Role, database string
 	return nil
 }
 
+func updateUser(client *mongo.Client, user DbUser, roles []Role, database string) error {
+	var result *mongo.SingleResult
+	if len(roles) != 0 {
+		result = client.Database(database).RunCommand(context.Background(), bson.D{{Key: "updateUser", Value: user.Name},
+			{Key: "pwd", Value: user.Password}, {Key: "roles", Value: roles}})
+	} else {
+		result = client.Database(database).RunCommand(context.Background(), bson.D{{Key: "updateUser", Value: user.Name},
+			{Key: "pwd", Value: user.Password}, {Key: "roles", Value: []bson.M{}}})
+	}
+
+	if result.Err() != nil {
+		return result.Err()
+	}
+	return nil
+}
+
 func getUser(client *mongo.Client, username string, database string) (SingleResultGetUser, error) {
 	var result *mongo.SingleResult
 	result = client.Database(database).RunCommand(context.Background(), bson.D{{Key: "usersInfo", Value: bson.D{
@@ -248,6 +264,38 @@ func createRole(client *mongo.Client, role string, roles []Role, privilege []Pri
 			{Key: "privileges", Value: []bson.M{}}, {Key: "roles", Value: roles}})
 	} else {
 		result = client.Database(database).RunCommand(context.Background(), bson.D{{Key: "createRole", Value: role},
+			{Key: "privileges", Value: []bson.M{}}, {Key: "roles", Value: []bson.M{}}})
+	}
+
+	if result.Err() != nil {
+		return result.Err()
+	}
+	return nil
+}
+
+func updateRole(client *mongo.Client, role string, roles []Role, privilege []PrivilegeDto, database string) error {
+	var privileges []Privilege
+	var result *mongo.SingleResult
+	for _, element := range privilege {
+		var prv Privilege
+		prv.Resource = Resource{
+			Db:         element.Db,
+			Collection: element.Collection,
+		}
+		prv.Actions = element.Actions
+		privileges = append(privileges, prv)
+	}
+	if len(roles) != 0 && len(privileges) != 0 {
+		result = client.Database(database).RunCommand(context.Background(), bson.D{{Key: "updateRole", Value: role},
+			{Key: "privileges", Value: privileges}, {Key: "roles", Value: roles}})
+	} else if len(roles) == 0 && len(privileges) != 0 {
+		result = client.Database(database).RunCommand(context.Background(), bson.D{{Key: "updateRole", Value: role},
+			{Key: "privileges", Value: privileges}, {Key: "roles", Value: []bson.M{}}})
+	} else if len(roles) != 0 && len(privileges) == 0 {
+		result = client.Database(database).RunCommand(context.Background(), bson.D{{Key: "updateRole", Value: role},
+			{Key: "privileges", Value: []bson.M{}}, {Key: "roles", Value: roles}})
+	} else {
+		result = client.Database(database).RunCommand(context.Background(), bson.D{{Key: "updateRole", Value: role},
 			{Key: "privileges", Value: []bson.M{}}, {Key: "roles", Value: []bson.M{}}})
 	}
 
