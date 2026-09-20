@@ -1,5 +1,5 @@
 run:
-  deadline: 10m
+  timeout: 10m
 
 issues:
   max-per-linter: 0
@@ -8,23 +8,22 @@ issues:
 linters:
   disable-all: true
   enable:
-    - deadcode
     - errcheck
+    - govet
     - ineffassign
-    - interfacer
     - nakedret
     - misspell
     - typecheck
     - unused
     - unconvert
     - unparam
-    - varcheck
-    - vet
-    - vetshadow
 
 linters-settings:
   errcheck:
-    ignore: github.com/hashicorp/terraform-plugin-sdk/helper/schema:ForceNew|Set,fmt:.*,io:Close
+    exclude-functions:
+      - github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema.ResourceData.Set
+      - fmt.*
+      - (io.Closer).Close
   misspell:
     ignore-words:
       - hdinsight
