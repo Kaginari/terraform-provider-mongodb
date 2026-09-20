@@ -5,3 +5,7 @@
 **/*.locl.hcl
 **/testgo/**
 **/.terraform.lock.hcl
+
+# Isekai Absolute Rule I: machine-local, disposable instrument state is gitignored —
+# the directory travels (kept present via other tracked files), only live readings don't.
+.isekai/metrics/
