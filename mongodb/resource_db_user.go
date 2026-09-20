@@ -24,10 +24,16 @@ func resourceDatabaseUser() *schema.Resource {
 			"auth_database": {
 				Type:     schema.TypeString,
 				Required: true,
+				// MongoDB's updateUser command cannot move a user to a different auth
+				// database - that's a different user identity. Force a create/destroy
+				// instead of silently targeting the wrong user on update.
+				ForceNew: true,
 			},
 			"name":{
 				Type:     schema.TypeString,
 				Required: true,
+				// MongoDB has no user-rename command; a name change is a new identity.
+				ForceNew: true,
 			},
 			"password":{
 				Type:     schema.TypeString,
@@ -99,13 +105,7 @@ func resourceDatabaseUserUpdate(ctx context.Context, data *schema.ResourceData, 
 	var userName = data.Get("name").(string)
 	var database = data.Get("auth_database").(string)
 	var userPassword = data.Get("password").(string)
-	
-	adminDB := client.Database(database)
 
-	result := adminDB.RunCommand(context.Background(), bson.D{{Key: "dropUser", Value: userName}})
-	if result.Err() != nil {
-		return diag.Errorf("%s",result.Err())
-	}
 	var roleList []Role
 	var user = DbUser{
 		Name:     userName,
@@ -116,14 +116,14 @@ func resourceDatabaseUserUpdate(ctx context.Context, data *schema.ResourceData, 
 	if roleMapErr != nil {
 		return diag.Errorf("Error decoding map : %s ", roleMapErr)
 	}
-	err2 := createUser(client,user,roleList,database)
+	// "name" and "auth_database" are ForceNew, so this always updates the same user
+	// identity in place (password/roles) rather than dropping and recreating it, which
+	// used to break any connection already authenticated as this user.
+	err2 := updateUser(client, user, roleList, database)
 	if err2 != nil {
-		return diag.Errorf("Could not create the user : %s ", err2)
+		return diag.Errorf("Could not update the user : %s ", err2)
 	}
 
-	newId := database+"."+userName
-	encoded := base64.StdEncoding.EncodeToString([]byte(newId))
-	data.SetId(encoded)
 	return resourceDatabaseUserRead(ctx, data, i)
 }
 
@@ -143,7 +143,11 @@ func resourceDatabaseUserRead(ctx context.Context, data *schema.ResourceData, i 
 		return diag.Errorf("Error decoding user : %s ", err)
 	}
 	if len(result.Users) == 0 {
-		return diag.Errorf("user does not exist")
+		// The user is gone from MongoDB (e.g. deleted out of band, or the cluster was
+		// recreated). Clear the ID instead of erroring so Terraform treats it as absent
+		// and offers to recreate it, rather than getting permanently stuck.
+		data.SetId("")
+		return nil
 	}
 	roles := make([]interface{}, len(result.Users[0].Roles))
 

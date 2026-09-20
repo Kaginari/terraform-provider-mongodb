@@ -49,11 +49,11 @@ resource "mongodb_db_role" "role_2" {
 ```
 ## Argument Reference
 
-* `database` - (Optional) **default="admin"** The database of the role.
+* `database` - (Optional, Forces new resource) **default="admin"** The database of the role. MongoDB has no command to move an existing role to a different database, so changing this destroys and recreates the resource.
 
 ~> **IMPORTANT:** If a role is created in a specific database you can only use it as inherited in another role in the same database.
 
-* `name` - (Required) Name of the custom role.
+* `name` - (Required, Forces new resource) Name of the custom role. MongoDB has no role-rename command, so changing this destroys and recreates the resource. Updating `privilege` or `inherited_role` instead updates the existing role in place via MongoDB's `updateRole` command; it does not drop and recreate the role.
 
 	-> **NOTE:** The specified role name can only contain letters, digits, underscores, and dashes. Additionally, you cannot specify a role name which meets any of the following criteria:
 
