@@ -9,7 +9,7 @@
   [![CI](https://img.shields.io/github/actions/workflow/status/Kaginari/terraform-provider-mongodb/golangci.yml?logo=github&style=flat-square&label=CI)](https://github.com/Kaginari/terraform-provider-mongodb/actions/workflows/golangci.yml)
   [![Open issues](https://img.shields.io/github/issues/Kaginari/terraform-provider-mongodb?logo=github&style=flat-square&color=B8341F)](https://github.com/Kaginari/terraform-provider-mongodb/issues)
 
-  [📖 Registry docs](https://registry.terraform.io/providers/Kaginari/mongodb/latest/docs) · [🐛 Report an issue](https://github.com/Kaginari/terraform-provider-mongodb/issues/new) · [💡 Request a feature](https://github.com/Kaginari/terraform-provider-mongodb/issues/new)
+  [📖 Registry docs](https://registry.terraform.io/providers/Kaginari/mongodb/latest/docs) · [📝 Read the article](https://bouagina-montassar.medium.com/managing-mongodb-infrastructure-as-code-with-terraform-4f6aca5b6b92) · [🐛 Report an issue](https://github.com/Kaginari/terraform-provider-mongodb/issues/new) · [💡 Request a feature](https://github.com/Kaginari/terraform-provider-mongodb/issues/new)
 </div>
 
 ---
