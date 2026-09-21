@@ -45,11 +45,11 @@ provider "mongodb" {
 ```hcl
 # Configure the MongoDB Provider
 provider "mongodb" {
-  host          = "127.0.0.1"
-  port          = "27017"
-  auth_database = "$external"
-  ssl           = true
-  # -> the client certificate's subject DN is the identity; no username/password needed
+  host = "127.0.0.1"
+  port = "27017"
+  ssl  = true
+  # -> the client certificate's subject DN is the identity; no username/password/auth_database
+  #    needed - X.509 auth always authenticates against MongoDB's $external database
   certificate_key_file = file(pathexpand("path/to/client.pem"))
   # -> optionally pin the server CA too, same as the plain-TLS example above
   certificate           = file(pathexpand("path/to/ca.pem"))
@@ -90,9 +90,7 @@ provider "mongodb" {
   password = "root"
   auth_database = "admin"
   ssl = true
-  # -> specify either
-  certificate = pathexpand("~/.mongodb/ca.pem")
-
+  certificate = file(pathexpand("~/.mongodb/ca.pem"))
   }
 ```
 ## Argument Reference
@@ -117,8 +115,10 @@ arguments](https://www.terraform.io/docs/configuration/providers.html) (e.g.
   environment variable.
 * `password  ` - (Optional) Specifies a password with which to authenticate to the MongoDB database. Not needed when `certificate_key_file` is set. Can also be sourced from the `MONGO_PWD`
   environment variable.
-* `auth_database   ` - (Required) Specifies the authentication database where the specified `username` has been created.
+* `auth_database   ` - (Optional) `default = "admin"` Specifies the authentication database where the specified `username` has been created. Not used when `certificate_key_file` is set - X.509 auth always authenticates against MongoDB's `$external` database.
 * `ssl   ` - (Optional) `default = false `set it to true to connect to a deployment using TLS/SSL with SCRAM authentication.
+* `insecure_skip_verify` - (Optional) `default = false` Ignore hostname verification of the server's TLS certificate. Only takes effect when `certificate` or `certificate_key_file` is also set.
+* `replica_set` - (Optional) `default = "" ` The name of the MongoDB replica set to connect to. Ignored when `direct = true`.
 * `retrywrites   ` - (Optional) `default = true `Retryable writes allow MongoDB drivers to automatically retry certain write operations a single time if they encounter network errors, or if they cannot find a healthy primary in the replica sets or sharded cluster.
 * `direct   ` - (Optional) `default = false ` determine if a direct connection is needed..
 * `proxy   ` - (Optional) `default = "" ` determine if connecting via a SOCKS5 proxy is needed, it can also be sourced from the `ALL_PROXY` or `all_proxy` environment variable.
