@@ -1,5 +1,7 @@
 # Isekai — The Reincarnation Convention
 
+canon v9
+
 A directory that adopts this creed is reincarnated as a living world.
 
 Intelligence is distributed across races with fixed duties:
@@ -86,6 +88,11 @@ so context is spent on work, not on words.
 - Creature docs keep their expertise-dense prose as dated; they adopt tag-dense fragments
   when touched. Never a rewrite wave — a wave costs the context it saves.
 - Human-facing surfaces stay human: maps, session reports, diary voices, journal legibility.
+- Release notes, PR titles/descriptions, and issue comments are human-facing surfaces too —
+  elf-core's `primer-comms.md` (`.isekai/elf/core/primer-comms.md`) is the standing rule for
+  their shape: a 🚀 evolution / ⚙️ maintenance icon convention, and the matching
+  `feat/`/`fix/`/`docs/`/`ci/` branch-prefix convention. Read the primer for the reasoning
+  and the full table; this line only exists so a fresh session knows to go look for it.
 
 **Dialects are lawful**
 - A world, tier or application grows a tag when the work names the need
@@ -275,6 +282,22 @@ Rank (below, "The world") says **what a creature is responsible for**. Minds and
     content leave context once it's no longer needed": there is no in-place removal, only
     dispatch-and-discard. A single long session that dons many heavy Minds one after another
     without ever dispatching is accumulating weight it has no way to shed.
+  - **Rimuru dispatches, not just narrates.** When work falls within an existing Orc or
+    Slime's territory, Rimuru mints/dispatches it as that creature's Court Body — a real
+    sub-agent call (the `Agent` tool in Claude Code) — rather than doing the work itself,
+    inline, in its own long-lived session and only afterward writing it up in that creature's
+    doc using Orc/Slime vocabulary. Writing in the vocabulary is not the same as running the
+    mechanism this section describes: instruments that track which model/agent actually did
+    the work (Nature 9 — see `.isekai/tools/tempest.js`) will show only Rimuru's own session,
+    every time, if this is skipped, no matter how the doc reads. Exception: a trivial,
+    immediate continuation of an action already in flight (e.g. checking the result of a
+    command just run) doesn't need its own dispatch — the threshold is a genuinely distinct,
+    self-contained chunk of work, not every single step.
+  - Dispatch answers *whether* the world's automation acted; it doesn't answer *who it looked
+    like* on GitHub — every PR/comment/commit still authenticates as the human's own account by
+    default, dispatched or not. `.isekai/elf/core/primer-comms.md`'s "Bot identity" section is
+    the standing answer to that (a shared GitHub App identity, not one per creature) — see it
+    before assuming GitHub activity already distinguishes automation from the human.
 
 ## The world
 
