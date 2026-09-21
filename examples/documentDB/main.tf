@@ -36,3 +36,16 @@ resource "mongodb_db_user" "user" {
 
 
 }
+
+# IAM-authenticated user (AWS DocumentDB): the "user" is the IAM role/user ARN, no password -
+# DocumentDB rejects createUser/updateUser if one is included for this auth mechanism.
+# https://docs.aws.amazon.com/documentdb/latest/developerguide/iam-identity-auth.html
+resource "mongodb_db_user" "iam_user" {
+  auth_database   = "$external"
+  name            = "arn:aws:iam::123456789123:role/iamrole"
+  auth_mechanisms = ["MONGODB-AWS"]
+  role {
+    role = "readWrite"
+    db   = "monta"
+  }
+}

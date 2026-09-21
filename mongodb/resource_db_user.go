@@ -45,7 +45,20 @@ func resourceDatabaseUser() *schema.Resource {
 			},
 			"password":{
 				Type:     schema.TypeString,
-				Required: true,
+				Optional: true,
+				// Not required for external-identity auth (X.509 client certs, or IAM auth
+				// on AWS DocumentDB via "MONGODB-AWS" in auth_mechanisms) - MongoDB rejects
+				// createUser/updateUser calls that include a password for those mechanisms.
+			},
+			"auth_mechanisms": {
+				Type:     schema.TypeSet,
+				Optional: true,
+				Elem: &schema.Schema{
+					Type: schema.TypeString,
+				},
+				// e.g. ["MONGODB-AWS"] for AWS DocumentDB IAM-authenticated users (name is
+				// then the IAM user/role ARN, auth_database "$external", no password). Unset
+				// leaves MongoDB's own default (SCRAM) in place.
 			},
 			"role": {
 				Type:     schema.TypeSet,
@@ -172,6 +185,7 @@ func resourceDatabaseUserUpdate(ctx context.Context, data *schema.ResourceData, 
 	var userName = data.Get("name").(string)
 	var database = data.Get("auth_database").(string)
 	var userPassword = data.Get("password").(string)
+	var authMechanisms = stringSetToSlice(data.Get("auth_mechanisms").(*schema.Set))
 
 	var roleList []Role
 	var user = DbUser{
@@ -186,7 +200,7 @@ func resourceDatabaseUserUpdate(ctx context.Context, data *schema.ResourceData, 
 	// "name" and "auth_database" are ForceNew, so this always updates the same user
 	// identity in place (password/roles) rather than dropping and recreating it, which
 	// used to break any connection already authenticated as this user.
-	err2 := updateUser(client, user, roleList, database)
+	err2 := updateUser(client, user, roleList, authMechanisms, database)
 	if err2 != nil {
 		return diag.Errorf("Could not update the user : %s ", err2)
 	}
@@ -238,6 +252,10 @@ func resourceDatabaseUserRead(ctx context.Context, data *schema.ResourceData, i 
 	if dataSetError != nil  {
 		return diag.Errorf("error setting password : %s " , dataSetError)
 	}
+	dataSetError = data.Set("auth_mechanisms", result.Users[0].Mechanisms)
+	if dataSetError != nil {
+		return diag.Errorf("error setting auth_mechanisms : %s ", dataSetError)
+	}
 	data.SetId(stateID)
 	return nil
 }
@@ -251,6 +269,7 @@ func resourceDatabaseUserCreate(ctx context.Context, data *schema.ResourceData, 
 	var database = data.Get("auth_database").(string)
 	var userName = data.Get("name").(string)
 	var userPassword = data.Get("password").(string)
+	var authMechanisms = stringSetToSlice(data.Get("auth_mechanisms").(*schema.Set))
 	var roleList []Role
 	var user = DbUser{
 		Name:     userName,
@@ -261,12 +280,24 @@ func resourceDatabaseUserCreate(ctx context.Context, data *schema.ResourceData, 
 	if roleMapErr != nil {
 		return diag.Errorf("Error decoding map : %s ", roleMapErr)
 	}
-	err := createUser(client,user,roleList,database)
+	err := createUser(client,user,roleList,authMechanisms,database)
 	if err != nil {
 		return diag.Errorf("Could not create the user : %s ", err)
 	}
 	data.SetId(database + "/" + userName)
 	return resourceDatabaseUserRead(ctx, data, i)
+}
+
+// stringSetToSlice converts a TypeSet-of-strings schema value into a []string, used for
+// auth_mechanisms - the mongo driver / bson command needs a concrete []string, not the
+// *schema.Set's []interface{} form.
+func stringSetToSlice(set *schema.Set) []string {
+	raw := set.List()
+	out := make([]string, len(raw))
+	for i, v := range raw {
+		out[i] = v.(string)
+	}
+	return out
 }
 
 func resourceDatabaseUserParseId(id string) (string, string, error){
