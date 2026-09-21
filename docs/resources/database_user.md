@@ -47,13 +47,31 @@ resource "mongodb_db_user" "user_with_custom role" {
   }
 }
 ```
+
+##### - create an IAM-authenticated user on AWS DocumentDB
+```hcl
+# DocumentDB IAM auth: the "user" is the IAM user/role ARN, authenticated in the $external
+# database via the MONGODB-AWS mechanism instead of a password - DocumentDB rejects a
+# createUser/updateUser call that includes a password for this mechanism, so password must
+# be left unset. See: https://docs.aws.amazon.com/documentdb/latest/developerguide/iam-identity-auth.html
+resource "mongodb_db_user" "iam_user" {
+  auth_database   = "$external"
+  name            = "arn:aws:iam::123456789123:role/iamrole"
+  auth_mechanisms = ["MONGODB-AWS"]
+  role {
+    role = "readWrite"
+    db   = "my_database"
+  }
+}
+```
 ## Argument Reference
 
-* `auth_database` - (Required, Forces new resource) Database against which Mongo authenticates the user. A user must provide both a username and authentication database to log into MongoDB. MongoDB has no command to move an existing user to a different authentication database, so changing this destroys and recreates the resource.
+* `auth_database` - (Required, Forces new resource) Database against which Mongo authenticates the user. A user must provide both a username and authentication database to log into MongoDB. MongoDB has no command to move an existing user to a different authentication database, so changing this destroys and recreates the resource. For IAM-authenticated DocumentDB users this must be `"$external"`.
 * `role` - (optional) List of user’s roles and the databases / collections on which the roles apply. A role allows the user to perform particular actions on the specified database. A role on the admin database can include privileges that apply to the other databases as well. See [Role](#role) below for more details.
 
-* `name` - (Required, Forces new resource) Username for authenticating to MongoDB. MongoDB has no user-rename command, so changing this destroys and recreates the resource.
-* `password` - (Required) User's initial password. A value is required to create the database user, however the argument but may be removed from your Terraform configuration after user creation without impacting the user, password or Terraform management. Updating this (or `role`) updates the existing user in place via MongoDB's `updateUser` command; it does not drop and recreate the user.
+* `name` - (Required, Forces new resource) Username for authenticating to MongoDB. MongoDB has no user-rename command, so changing this destroys and recreates the resource. For IAM-authenticated DocumentDB users this is the IAM user/role ARN.
+* `password` - (Optional) User's initial password. Required for normal SCRAM-authenticated users; must be left unset for a user authenticated via an external-identity mechanism (`auth_mechanisms`, e.g. `["MONGODB-AWS"]` for DocumentDB IAM auth, or MongoDB's own `MONGODB-X509`) — MongoDB rejects a `createUser`/`updateUser` call that includes a password for those. May be removed from your Terraform configuration after user creation without impacting the user, password or Terraform management. Updating this (or `role`) updates the existing user in place via MongoDB's `updateUser` command; it does not drop and recreate the user.
+* `auth_mechanisms` - (Optional) Set of authentication mechanisms for this user, e.g. `["MONGODB-AWS"]` for an IAM-authenticated user on AWS DocumentDB. Leave unset for a normal password-authenticated (SCRAM) user.
 
 ~> **IMPORTANT:** --- Passwords may show up in Terraform related logs and it will be stored in the Terraform state file as plain-text. Password can be changed after creation using your preferred method, e.g. via the MongoDB Shell, to ensure security.  If you do change management of the password to outside of Terraform be sure to remove the argument from the Terraform configuration so it is not inadvertently updated to the original password.
 

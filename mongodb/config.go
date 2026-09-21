@@ -63,6 +63,7 @@ type SingleResultGetUser struct {
 			Role string `json:"role"`
 			Db   string `json:"db"`
 		} `json:"roles"`
+		Mechanisms []string `json:"mechanisms"`
 	} `json:"users"`
 }
 type SingleResultGetRole struct {
@@ -221,32 +222,41 @@ func (resource Resource) String() string {
 	return fmt.Sprintf(" { db : %s , collection : %s }", resource.Db, resource.Collection)
 }
 
-func createUser(client *mongo.Client, user DbUser, roles []Role, database string) error {
-	var result *mongo.SingleResult
+// buildUserCommand builds the createUser/updateUser command document. `pwd` and `mechanisms`
+// are included only when actually set: MongoDB (and AWS DocumentDB specifically) rejects a
+// createUser/updateUser call that includes `pwd` for an external-identity auth mechanism
+// (X.509 client certs, or "MONGODB-AWS" for DocumentDB IAM auth) - those users have no
+// password at all. `roles` keeps its prior unconditional-with-empty-fallback shape unchanged.
+func buildUserCommand(verb string, user DbUser, roles []Role, authMechanisms []string) bson.D {
+	cmd := bson.D{{Key: verb, Value: user.Name}}
+
 	if len(roles) != 0 {
-		result = client.Database(database).RunCommand(context.Background(), bson.D{{Key: "createUser", Value: user.Name},
-			{Key: "pwd", Value: user.Password}, {Key: "roles", Value: roles}})
+		cmd = append(cmd, bson.E{Key: "roles", Value: roles})
 	} else {
-		result = client.Database(database).RunCommand(context.Background(), bson.D{{Key: "createUser", Value: user.Name},
-			{Key: "pwd", Value: user.Password}, {Key: "roles", Value: []bson.M{}}})
+		cmd = append(cmd, bson.E{Key: "roles", Value: []bson.M{}})
 	}
 
+	if user.Password != "" {
+		cmd = append(cmd, bson.E{Key: "pwd", Value: user.Password})
+	}
+
+	if len(authMechanisms) != 0 {
+		cmd = append(cmd, bson.E{Key: "mechanisms", Value: authMechanisms})
+	}
+
+	return cmd
+}
+
+func createUser(client *mongo.Client, user DbUser, roles []Role, authMechanisms []string, database string) error {
+	result := client.Database(database).RunCommand(context.Background(), buildUserCommand("createUser", user, roles, authMechanisms))
 	if result.Err() != nil {
 		return result.Err()
 	}
 	return nil
 }
 
-func updateUser(client *mongo.Client, user DbUser, roles []Role, database string) error {
-	var result *mongo.SingleResult
-	if len(roles) != 0 {
-		result = client.Database(database).RunCommand(context.Background(), bson.D{{Key: "updateUser", Value: user.Name},
-			{Key: "pwd", Value: user.Password}, {Key: "roles", Value: roles}})
-	} else {
-		result = client.Database(database).RunCommand(context.Background(), bson.D{{Key: "updateUser", Value: user.Name},
-			{Key: "pwd", Value: user.Password}, {Key: "roles", Value: []bson.M{}}})
-	}
-
+func updateUser(client *mongo.Client, user DbUser, roles []Role, authMechanisms []string, database string) error {
+	result := client.Database(database).RunCommand(context.Background(), buildUserCommand("updateUser", user, roles, authMechanisms))
 	if result.Err() != nil {
 		return result.Err()
 	}
