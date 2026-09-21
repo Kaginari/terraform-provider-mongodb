@@ -752,3 +752,34 @@ Append-only. Newest entries at the bottom. One entry per change.
     offered two options of very different weight (write a doc vs. do a live multi-step
     third-party signup) defaults to the lighter, immediately-actionable one; named that
     reading explicitly rather than silently picking one.
+
+### [2026-09-21T03:02:12+02:00] rimuru — v1.0.1 release notes forgotten for real; release checklist added to primer-comms.md so it can't happen silently again
+- **Task:** v1.0.1 was tagged, released, and validated (mirroring v1.0.0's flow) while three
+  other things landed in the same stretch: a goreleaser `changelog.skip` deprecation fix, a
+  hand-authored project icon, and a README rewrite. The release-notes-attach step from v1.0.0's
+  own flow got lost in that shuffle - the release shipped with an empty body. Human caught it:
+  "release notes 1.0.1 are not showing did you forget them u did it for v1.0.0 do like that add
+  icons and make sure nexttime its done."
+- **Files:** `.isekai/elf/core/primer-comms.md` (new "Release checklist" section),
+  `.goreleaser.yml` (comment explaining `changelog.disable` and pointing at the checklist).
+- **Gate:** n/a (Rimuru solo, direct order)
+- **Result:** done — v1.0.1's notes attached immediately once caught (`gh release edit
+  v1.0.1 --notes-file ...`, verified non-empty), and the systemic gap closed for future
+  releases.
+- **Learned:**
+  - **This was a real mistake, not a one-off distraction** — worth naming plainly rather than
+    filing under "things happen." `changelog.disable: true` guarantees an empty release body
+    every time, with no error, no warning, nothing that would surface the omission on its own -
+    the only thing that catches it is a human checking the release page, which is exactly what
+    happened. A silent failure mode with no built-in signal is precisely the kind of thing that
+    deserves a written checklist, not "be more careful next time."
+  - **The checklist's last step is a verification, not just an instruction**: `gh release view
+    vX.Y.Z --json body --jq '.body'` must come back non-empty, checked immediately after the
+    edit, not assumed to have worked. Nature 9 applies to my own actions the same way it
+    applies to any other instrument claim - "I ran the edit command" is not the same claim as
+    "the notes are actually there," and only the second one is what matters.
+  - **Same shape as the goreleaser `--rm-dist` fix earlier this session**: both are "a step
+    that used to be someone's manual attention is now silently skippable, with no error to
+    catch it." The convention's actual defense against this class of gap isn't vigilance (which
+    already failed once, here) - it's writing the step down somewhere a fresh reading of the
+    primer will surface it before the moment it's needed, which is what just happened.

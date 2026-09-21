@@ -66,6 +66,29 @@ almost always two PRs, not one (this world found that out the hard way once: the
 migration and the in-place-update fix landed as two separate PRs the same session specifically
 so each stayed independently reviewable, rather than one branch trying to be both).
 
+## Release checklist
+
+Tagging and pushing is not the last step — `.goreleaser.yml` has `changelog.disable: true` (see
+its own comment for why: this world's commit history isn't clean conventional-commit-per-line,
+so an auto-generated changelog would be noisy, not useful), which means **the GitHub Release
+GoReleaser creates has an empty body by default, every single time**, until a human or session
+attaches real notes on top of it. This is not optional and it is easy to forget once a release
+is flanked by five other things happening in the same stretch (found out the hard way on
+v1.0.1: notes were drafted, the release shipped, and the attach step got lost in the shuffle of
+a goreleaser-deprecation fix, an icon, and a README rewrite all landing around the same time —
+caught only because the human checked the release page and asked where the notes were).
+
+1. Draft the notes using the 🚀/⚙️ icon convention above, *before* tagging (so they're ready the
+   moment the release exists, not written from memory afterward).
+2. `git tag -a vX.Y.Z -m "..."` and `git push origin vX.Y.Z`.
+3. Wait for `release.yml` to finish (`gh run list --workflow=release.yml --limit 1`).
+4. **`gh release edit vX.Y.Z --notes-file <the draft from step 1>` — do this immediately, in
+   the same breath as confirming the release succeeded, before moving on to anything else.**
+   Verify it actually landed: `gh release view vX.Y.Z --json body --jq '.body'` should NOT come
+   back empty. An empty result here means step 4 didn't happen, not that it's fine.
+5. Only after step 4 is confirmed non-empty: move on to registry validation, issue comments, or
+   whatever else the release triggers.
+
 ## Bot identity
 
 Every PR, issue comment, and commit this world has produced so far shows up under the human's

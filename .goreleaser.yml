@@ -50,5 +50,11 @@ signs:
 release:
 # If you want to manually examine the release before its live, uncomment this line:
 # draft: true
+# Disabled rather than auto-generated: this repo's commit history isn't clean
+# conventional-commit-per-line, so an auto changelog would be noisy, not useful.
+# This means the GitHub Release this creates has an EMPTY body by default -
+# release notes must be attached by hand afterward (gh release edit vX.Y.Z
+# --notes-file ...). See .isekai/elf/core/primer-comms.md's Release checklist -
+# this step has been forgotten for real once already (v1.0.1).
 changelog:
   disable: true
