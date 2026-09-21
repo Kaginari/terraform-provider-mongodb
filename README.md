@@ -1,7 +1,5 @@
 <div align="center">
-  <img src=".github/assets/icon-512.png" width="120" alt="terraform-provider-mongodb icon">
-
-  # Terraform Provider for MongoDB
+  <img src=".github/assets/banner.jpg" width="640" alt="terraform-provider-mongodb — MongoDB provider for Terraform, by Kaginari">
 
   **Manage MongoDB users, roles, collections and indexes as Terraform resources — including AWS DocumentDB.**
 
