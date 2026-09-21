@@ -60,8 +60,14 @@ func resourceDatabaseRole() *schema.Resource {
 							Optional: true,
 						},
 
+						// TypeSet, not TypeList: MongoDB doesn't guarantee returning
+						// privilege actions in the order they were granted, and action
+						// order has no semantic meaning. A TypeList here made a
+						// reordered-but-identical actions list hash to a different
+						// privilege set element, so Terraform showed a full remove+add
+						// of the whole privilege block on every plan - see #38.
 						"actions": {
-							Type:     schema.TypeList,
+							Type:     schema.TypeSet,
 							Optional: true,
 							Elem: &schema.Schema{
 								Type: schema.TypeString,
@@ -177,6 +183,32 @@ func resourceDatabaseRoleUpgradeV0(_ context.Context, rawState map[string]interf
 	return rawState, nil
 }
 
+// normalizePrivilegeSet converts each privilege element's "actions" from the
+// *schema.Set that Get returns (actions is TypeSet) into a plain []interface{},
+// which is the shape mapstructure.Decode needs to fill PrivilegeDto.Actions
+// ([]string). Without this, mapstructure fails with "source data must be an
+// array or slice, got struct" - schema.Set is a struct, not a slice, even
+// though .List() on the *outer* privilege set already gave us []interface{}.
+func normalizePrivilegeSet(raw []interface{}) []interface{} {
+	normalized := make([]interface{}, len(raw))
+	for i, item := range raw {
+		m, ok := item.(map[string]interface{})
+		if !ok {
+			normalized[i] = item
+			continue
+		}
+		if actionsSet, ok := m["actions"].(*schema.Set); ok {
+			m = map[string]interface{}{
+				"db":         m["db"],
+				"collection": m["collection"],
+				"actions":    actionsSet.List(),
+			}
+		}
+		normalized[i] = m
+	}
+	return normalized
+}
+
 func resourceDatabaseRoleCreate(ctx context.Context, data *schema.ResourceData, i interface{}) diag.Diagnostics {
 	var config = i.(*MongoDatabaseConfiguration)
 	client , connectionError := MongoClientInit(config)
@@ -188,7 +220,7 @@ func resourceDatabaseRoleCreate(ctx context.Context, data *schema.ResourceData, 
 	var roleList []Role
 	var privileges []PrivilegeDto
 
-	privilege := data.Get("privilege").(*schema.Set).List()
+	privilege := normalizePrivilegeSet(data.Get("privilege").(*schema.Set).List())
 	roles := data.Get("inherited_role").(*schema.Set).List()
 
 	roleMapErr := mapstructure.Decode(roles, &roleList)
@@ -250,7 +282,7 @@ func resourceDatabaseRoleUpdate(ctx context.Context, data *schema.ResourceData, 
 	var roleList []Role
 	var privileges []PrivilegeDto
 
-	privilege := data.Get("privilege").(*schema.Set).List()
+	privilege := normalizePrivilegeSet(data.Get("privilege").(*schema.Set).List())
 	roles := data.Get("inherited_role").(*schema.Set).List()
 
 	roleMapErr := mapstructure.Decode(roles, &roleList)
